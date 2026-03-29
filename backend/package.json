@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate && tsc && node scripts/fix-imports.js && node scripts/postbuild.js",
+    "build": "prisma generate && tsup",
     "build:tsup": "tsup",
     "start": "node dist/server.js",
     "lint": "eslint ./src/**/*",
