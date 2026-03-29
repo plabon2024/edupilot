@@ -1,0 +1,27 @@
+model Document {
+  id                 String         @id @default(cuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  fileName           String
+  cloudinaryPublicId String
+  filePath           String
+  fileSystemPath     String?
+  fileSize           Int
+  extractedText      String?        @default("")
+  chunks             Json           @default("[]")
+  uploadDate         DateTime       @default(now())
+  lastAccessed       DateTime       @default(now())
+  status             DocumentStatus @default(PROCESSING)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  flashcards Flashcard[]
+  quizzes    Quiz[]
+  chats      ChatHistory[]
+
+  @@index([userId, uploadDate(sort: Desc)])
+  @@index([status])
+  @@index([createdAt])
+  @@map("document")
+}

@@ -1,0 +1,28 @@
+model ChatHistory {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  messages   ChatMessage[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, documentId])
+  @@map("chat_history")
+}
+
+model ChatMessage {
+  id             String      @id @default(cuid())
+  chatHistoryId  String
+  chatHistory    ChatHistory @relation(fields: [chatHistoryId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  relevantChunks Int[]       @default([])
+  timestamp      DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([chatHistoryId])
+  @@map("chat_message")
+}

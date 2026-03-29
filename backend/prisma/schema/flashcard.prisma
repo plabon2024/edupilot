@@ -1,0 +1,30 @@
+model Flashcard {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  cards      FlashcardCard[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([userId, documentId])
+  @@map("flashcard")
+}
+
+model FlashcardCard {
+  id           String     @id @default(cuid())
+  flashcardId  String
+  flashcard    Flashcard  @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  question     String
+  answer       String
+  difficulty   Difficulty @default(MEDIUM)
+  lastReviewed DateTime?
+  reviewCount  Int        @default(0)
+  isStarred    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([flashcardId])
+  @@map("flashcard_card")
+}

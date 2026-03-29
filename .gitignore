@@ -1,0 +1,41 @@
+# Dependency and build folders
+node_modules/
+dist/
+build/
+.next/
+api/
+out/
+.vercel/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# Prisma specific
+/backend/src/generated/
+/backend/prisma/generated/
+/generated/prisma/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Misc
+.cache/
+.eslintcache
+.stylelintcache
+coverage/
+.turbo/
