@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import axios from "axios";
 import Link from "next/link";
 import {
   Card,
@@ -18,7 +17,6 @@ import {
   Trash2,
   BrainCircuit,
   Layers,
-  Clock,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -29,21 +27,13 @@ import {
   FilePlus,
   AlertCircle,
 } from "lucide-react";
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
-
-interface Document {
-  id: string;
-  title: string;
-  fileName: string;
-  filePath: string;
-  fileSize: number;
-  status: "PROCESSING" | "READY" | "FAILED";
-  flashcardCount: number;
-  quizCount: number;
-  uploadDate: string;
-  lastAccessed?: string;
-}
+import {
+  uploadDocument,
+  getDocuments,
+  deleteDocument,
+  type Document,
+} from "@/services/document.services";
+import axios from "axios";
 
 const STATUS_CONFIG = {
   READY: {
@@ -87,19 +77,14 @@ export default function DocumentsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const getToken = () =>
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   const fetchDocuments = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_BASE}/documents`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      setDocuments(res.data.data || []);
+      const docs = await getDocuments();
+      setDocuments(docs);
     } catch {
-      setError("Failed to load documents.");
+      setError("Failed to load documents. Please try refreshing.");
     } finally {
       setLoading(false);
     }
@@ -111,44 +96,12 @@ export default function DocumentsPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFile || !uploadTitle.trim()) return;
+    if (!uploadFile) return;
     setUploading(true);
     setUploadError(null);
     try {
-      // 1. Get Signature from backend
-      const sigRes = await axios.get(`${API_BASE}/documents/upload-signature`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      const { signature, timestamp, cloudName, apiKey } = sigRes.data.data;
-
-      // 2. Upload file directly to Cloudinary
-      const cloudinaryForm = new FormData();
-      cloudinaryForm.append("file", uploadFile);
-      cloudinaryForm.append("signature", signature);
-      cloudinaryForm.append("timestamp", timestamp.toString());
-      cloudinaryForm.append("api_key", apiKey);
-      cloudinaryForm.append("folder", "documents");
-
-      const uploadRes = await axios.post(
-        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-        cloudinaryForm
-      );
-      
-      const cloudinaryData = uploadRes.data;
-
-      // 3. Send metadata to our backend
-      await axios.post(`${API_BASE}/documents/upload`, {
-        title: uploadTitle.trim(),
-        fileName: uploadFile.name,
-        fileSize: cloudinaryData.bytes,
-        cloudinaryPublicId: cloudinaryData.public_id,
-        filePath: cloudinaryData.secure_url,
-      }, {
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
-      });
-
+      // POST /api/v1/documents/upload — multipart/form-data with "file" and optional "title"
+      await uploadDocument(uploadFile, uploadTitle.trim() || undefined);
       setShowUpload(false);
       setUploadTitle("");
       setUploadFile(null);
@@ -156,10 +109,14 @@ export default function DocumentsPage() {
     } catch (err: unknown) {
       console.error(err);
       if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.error?.message || err.response?.data?.message || err.response?.data?.error || "Upload failed.";
+        const msg =
+          err.response?.data?.error?.message ||
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Upload failed.";
         setUploadError(msg);
       } else {
-        setUploadError("Upload failed.");
+        setUploadError("Upload failed. Please try again.");
       }
     } finally {
       setUploading(false);
@@ -167,15 +124,18 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this document? This removes all associated flashcards and quizzes.")) return;
+    if (
+      !confirm(
+        "Delete this document? This removes all associated flashcards and quizzes."
+      )
+    )
+      return;
     setDeleting(id);
     try {
-      await axios.delete(`${API_BASE}/documents/${id}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      await deleteDocument(id);
       setDocuments((prev) => prev.filter((d) => d.id !== id));
     } catch {
-      alert("Failed to delete document.");
+      alert("Failed to delete document. Please try again.");
     } finally {
       setDeleting(null);
     }
@@ -230,20 +190,30 @@ export default function DocumentsPage() {
                     Upload Document
                   </CardTitle>
                   <button
-                    onClick={() => { setShowUpload(false); setUploadError(null); setUploadFile(null); setUploadTitle(""); }}
+                    onClick={() => {
+                      setShowUpload(false);
+                      setUploadError(null);
+                      setUploadFile(null);
+                      setUploadTitle("");
+                    }}
                     className="rounded-md p-1 text-muted-foreground hover:bg-muted"
                     id="close-upload-modal"
                   >
                     <X className="size-4" />
                   </button>
                 </div>
-                <CardDescription>Upload a PDF to generate flashcards and quizzes</CardDescription>
+                <CardDescription>
+                  Upload a PDF to generate flashcards and quizzes
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleUpload} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium" htmlFor="doc-title">
-                      Document Title
+                      Document Title{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       id="doc-title"
@@ -251,25 +221,34 @@ export default function DocumentsPage() {
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
                       placeholder="e.g. Biology Chapter 5"
-                      required
                       className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium" htmlFor="doc-file">
-                      PDF File
+                      PDF File <span className="text-destructive">*</span>
                     </label>
                     <div
                       onClick={() => fileRef.current?.click()}
                       className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 transition-colors hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/10 ${
-                        uploadFile ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/10" : "border-border/60"
+                        uploadFile
+                          ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/10"
+                          : "border-border/60"
                       }`}
                     >
-                      <FileText className={`size-8 ${uploadFile ? "text-blue-500" : "text-muted-foreground/50"}`} />
+                      <FileText
+                        className={`size-8 ${
+                          uploadFile
+                            ? "text-blue-500"
+                            : "text-muted-foreground/50"
+                        }`}
+                      />
                       <p className="text-sm text-center">
                         {uploadFile ? (
-                          <span className="font-medium text-blue-600 dark:text-blue-400">{uploadFile.name}</span>
+                          <span className="font-medium text-blue-600 dark:text-blue-400">
+                            {uploadFile.name}
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">
                             Click to select a PDF file
@@ -277,7 +256,9 @@ export default function DocumentsPage() {
                         )}
                       </p>
                       {uploadFile && (
-                        <p className="text-xs text-muted-foreground">{formatFileSize(uploadFile.size)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(uploadFile.size)}
+                        </p>
                       )}
                     </div>
                     <input
@@ -286,7 +267,9 @@ export default function DocumentsPage() {
                       type="file"
                       accept=".pdf"
                       className="sr-only"
-                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                      onChange={(e) =>
+                        setUploadFile(e.target.files?.[0] || null)
+                      }
                     />
                   </div>
 
@@ -298,11 +281,27 @@ export default function DocumentsPage() {
                   )}
 
                   <div className="flex gap-2 pt-1">
-                    <Button type="submit" disabled={uploading || !uploadFile || !uploadTitle.trim()} className="flex-1" id="submit-upload-btn">
-                      {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                    <Button
+                      type="submit"
+                      disabled={uploading || !uploadFile}
+                      className="flex-1"
+                      id="submit-upload-btn"
+                    >
+                      {uploading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Upload className="size-4" />
+                      )}
                       {uploading ? "Uploading…" : "Upload"}
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => { setShowUpload(false); setUploadError(null); }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowUpload(false);
+                        setUploadError(null);
+                      }}
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -324,7 +323,10 @@ export default function DocumentsPage() {
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40" />
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40"
+              />
             ))}
           </div>
         ) : documents.length === 0 ? (
@@ -339,7 +341,10 @@ export default function DocumentsPage() {
                   Upload your first PDF to start generating study materials.
                 </p>
               </div>
-              <Button onClick={() => setShowUpload(true)} id="upload-first-doc-btn">
+              <Button
+                onClick={() => setShowUpload(true)}
+                id="upload-first-doc-btn"
+              >
                 <FilePlus className="size-4" />
                 Upload your first PDF
               </Button>
@@ -366,14 +371,20 @@ export default function DocumentsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold truncate">{doc.title}</p>
                         <Badge variant="outline" className={status.className}>
-                          <StatusIcon className={`size-3 ${doc.status === "PROCESSING" ? "animate-spin" : ""}`} />
+                          <StatusIcon
+                            className={`size-3 ${
+                              doc.status === "PROCESSING" ? "animate-spin" : ""
+                            }`}
+                          />
                           {status.label}
                         </Badge>
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground truncate">
                         {doc.fileName} · {formatFileSize(doc.fileSize)} ·{" "}
                         {new Date(doc.uploadDate).toLocaleDateString("en-US", {
-                          month: "short", day: "numeric", year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
                         })}
                       </p>
                       <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">

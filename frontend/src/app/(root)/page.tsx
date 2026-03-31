@@ -2,19 +2,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Brain,
   Upload,
   Zap,
@@ -110,7 +97,7 @@ function HeroSection() {
         <div className="pt-8 border-t border-border/50 flex flex-wrap justify-center gap-x-12 gap-y-6 max-w-4xl mx-auto">
           {[
             { label: "Active Students", value: "10k+", icon: Users },
-            { label: "Flashcards Generaetd", value: "5M+", icon: Zap },
+            { label: "Flashcards Generated", value: "5M+", icon: Zap },
             { label: "Avg. Grade Jump", value: "+41%", icon: TrendingUp },
           ].map((stat) => {
             const Icon = stat.icon;
@@ -200,7 +187,7 @@ function FeaturesSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((f, i) => {
+          {features.map((f) => {
             const Icon = f.icon;
             return (
               <div
@@ -280,7 +267,7 @@ function HowItWorksSection() {
               color: "text-emerald-600 dark:text-emerald-400",
               ring: "ring-emerald-500/30 bg-emerald-500/10",
             },
-          ].map((s, i) => {
+          ].map((s) => {
             const Icon = s.icon;
             return (
               <div key={s.step} className="relative z-10 flex flex-col items-center text-center group">
@@ -321,11 +308,11 @@ function PricingSection() {
           <p className="text-xl text-muted-foreground">Stop failing classes. Start passing effortlessly.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Free Tier */}
           <div className="rounded-3xl border border-border bg-card/50 backdrop-blur-xl p-10 hover:border-border/80 transition-colors">
             <h3 className="text-3xl font-black mb-2">Basic Starter</h3>
-            <p className="text-muted-foreground mb-6">Perfect for testing the AI.</p>
+            <p className="text-muted-foreground mb-6">Perfect for trying out the AI.</p>
             <div className="flex items-baseline gap-2 mb-8">
               <span className="text-6xl font-black tracking-tighter">$0</span>
               <span className="text-lg text-muted-foreground font-medium">/ forever</span>
@@ -335,10 +322,11 @@ function PricingSection() {
             </Link>
             <ul className="space-y-4">
               {[
-                "Upload 5 PDFs total",
-                "5 generative AI actions / day",
-                "Standard Gemini Engine",
-                "Basic flashcard viewer",
+                "Upload up to 5 PDFs",
+                "5 AI actions per day",
+                "AI Flashcard generation",
+                "AI Quiz generation",
+                "Document chat",
               ].map((feat) => (
                 <li key={feat} className="flex items-center gap-3 font-medium text-foreground/80">
                   <CheckCircle className="w-5 h-5 text-muted-foreground" />
@@ -355,11 +343,12 @@ function PricingSection() {
             </div>
             <h3 className="text-3xl font-black mb-2">Pro Scholar</h3>
             <p className="text-violet-600 dark:text-violet-400 mb-6 font-medium">Unlimited cognitive power.</p>
-            <div className="flex items-baseline gap-2 mb-8">
-              <span className="text-6xl font-black tracking-tighter">$12</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-6xl font-black tracking-tighter">$9.99</span>
               <span className="text-lg text-muted-foreground font-medium">/ month</span>
             </div>
-            <Link href="/upgrade">
+            <p className="text-sm text-muted-foreground mb-6">Buy multiple months at once &amp; save</p>
+            <Link href="/pricing">
               <Button className="w-full h-14 text-lg font-bold rounded-xl mb-8 bg-foreground text-background hover:scale-[1.02] hover:shadow-xl hover:shadow-violet-500/20 transition-all duration-300">
                 Upgrade to Pro
               </Button>
@@ -367,10 +356,12 @@ function PricingSection() {
             <ul className="space-y-4">
               {[
                 "Unlimited PDF uploads",
-                "Unlimited AI Generations",
-                "Priority Gemini Engine Queue",
-                "Advanced Quiz Maker",
-                "Detailed Knowledge Analytics"
+                "Unlimited AI generations",
+                "Priority Gemini Engine queue",
+                "Advanced Quiz maker",
+                "AI Concept Explainer",
+                "Persistent chat history",
+                "Detailed learning analytics",
               ].map((feat) => (
                 <li key={feat} className="flex items-center gap-3 font-medium text-foreground">
                   <CheckCircle className="w-5 h-5 text-violet-500" />
@@ -380,6 +371,12 @@ function PricingSection() {
             </ul>
           </div>
         </div>
+
+        <p className="text-center mt-10 text-muted-foreground text-sm">
+          Secure checkout via{" "}
+          <span className="font-semibold text-foreground">Stripe</span>
+          {" "}· Cancel anytime · No hidden fees
+        </p>
       </div>
     </section>
   );
