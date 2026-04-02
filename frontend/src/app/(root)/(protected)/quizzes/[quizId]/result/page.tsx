@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import axios from "axios";
 import {
   Card,
   CardContent,
@@ -24,30 +23,10 @@ import {
   BarChart3,
 } from "lucide-react";
 import Link from "next/link";
+import { getQuizResults } from "@/services/quiz.services";
+import type { QuizResults } from "@/services/quiz.services";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
 
-interface ResultItem {
-  questionIndex: number;
-  question: string;
-  options: string[];
-  correctAnswer: string;
-  selectedAnswer: string | null;
-  isCorrect: boolean;
-  explanation: string;
-}
-
-interface QuizResultData {
-  quiz: {
-    id: string;
-    title: string;
-    score: number;
-    totalQuestions: number;
-    completedAt: string;
-    document: { title?: string; fileName?: string } | null;
-  };
-  results: ResultItem[];
-}
 
 function ScoreGauge({ score }: { score: number }) {
   const radius = 52;
@@ -91,22 +70,17 @@ function ScoreGauge({ score }: { score: number }) {
 export default function QuizResultPage() {
   const { quizId } = useParams<{ quizId: string }>();
 
-  const [resultData, setResultData] = useState<QuizResultData | null>(null);
+  const [resultData, setResultData] = useState<QuizResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
-  const getToken = () =>
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        const res = await axios.get(
-          `${API_BASE}/quizzes/quiz/${quizId}/results`,
-          { headers: { Authorization: `Bearer ${getToken()}` } }
-        );
-        setResultData(res.data.data);
+        // Correct endpoint: GET /api/v1/quizzes/:id/results (not /quizzes/quiz/:id/results)
+        const data = await getQuizResults(quizId);
+        setResultData(data);
       } catch {
         setError("Could not load quiz results.");
       } finally {

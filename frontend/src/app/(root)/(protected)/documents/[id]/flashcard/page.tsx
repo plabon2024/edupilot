@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import axios from "axios";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,24 +11,14 @@ import {
   Layers, Loader2, AlertCircle, Inbox, RotateCcw, Eye, EyeOff,
   Trash2, Sparkles,
 } from "lucide-react";
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
-
-interface Card_ {
-  id: string;
-  question: string;
-  answer: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  reviewCount: number;
-  isStarred: boolean;
-  lastReviewed?: string;
-}
-interface FlashcardSet {
-  id: string;
-  documentId: { title?: string; fileName?: string };
-  cards: Card_[];
-  createdAt: string;
-}
+import { 
+  getFlashcardsByDocument, 
+  reviewFlashcard, 
+  toggleStarFlashcard, 
+  deleteFlashcardSet,
+  FlashcardSet,
+  FlashcardCard
+} from "@/services/flashcard.services";
 
 const DIFF_COLOR: Record<string, string> = {
   EASY: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400",
@@ -48,23 +37,19 @@ export default function FlashcardStudyPage() {
   const [filter, setFilter] = useState<"all" | "starred" | "unreviewed">("all");
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const token = () => typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const authHeaders = () => ({ Authorization: `Bearer ${token()}` });
-
   const fetchSets = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const r = await axios.get(`${API_BASE}/flashcards/${id}`, { headers: authHeaders() });
-      const data: FlashcardSet[] = r.data.data || [];
+      const data = await getFlashcardsByDocument(id);
       setSets(data);
       if (data.length > 0 && !selectedSet) setSelectedSet(data[0]);
     } catch { setError("Failed to load flashcards."); }
     finally { setLoading(false); }
-  }, [id]);
+  }, [id, selectedSet]);
 
   useEffect(() => { fetchSets(); }, [fetchSets]);
 
-  const filteredCards = (): Card_[] => {
+  const filteredCards = (): FlashcardCard[] => {
     if (!selectedSet) return [];
     switch (filter) {
       case "starred": return selectedSet.cards.filter(c => c.isStarred);
@@ -83,7 +68,7 @@ export default function FlashcardStudyPage() {
   const markReviewed = async () => {
     if (!current) return;
     try {
-      await axios.post(`${API_BASE}/flashcards/${current.id}/review`, {}, { headers: authHeaders() });
+      await reviewFlashcard(current.id);
       setSets(prev => prev.map(s =>
         s.id === selectedSet?.id
           ? { ...s, cards: s.cards.map(c => c.id === current.id ? { ...c, reviewCount: c.reviewCount + 1, lastReviewed: new Date().toISOString() } : c) }
@@ -97,7 +82,7 @@ export default function FlashcardStudyPage() {
   const toggleStar = async (cardId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await axios.put(`${API_BASE}/flashcards/${cardId}/star`, {}, { headers: authHeaders() });
+      await toggleStarFlashcard(cardId);
       const update = (s: FlashcardSet) => ({ ...s, cards: s.cards.map(c => c.id === cardId ? { ...c, isStarred: !c.isStarred } : c) });
       setSets(prev => prev.map(s => s.id === selectedSet?.id ? update(s) : s));
       setSelectedSet(prev => prev ? update(prev) : prev);
@@ -108,7 +93,7 @@ export default function FlashcardStudyPage() {
     if (!confirm("Delete this flashcard set? This cannot be undone.")) return;
     setDeleting(setId);
     try {
-      await axios.delete(`${API_BASE}/flashcards/${setId}`, { headers: authHeaders() });
+      await deleteFlashcardSet(setId);
       const remaining = sets.filter(s => s.id !== setId);
       setSets(remaining);
       if (selectedSet?.id === setId) { setSelectedSet(remaining[0] || null); setCardIndex(0); setFlipped(false); }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   FileText, BrainCircuit, Layers, MessageSquare, Loader2,
   AlertCircle, ChevronLeft, Sparkles, Send, CheckCircle2,
-  XCircle, Lightbulb, BookOpen, ChevronRight,
+  XCircle, Lightbulb, BookOpen, ChevronRight, User, Bot
 } from "lucide-react";
 import {
   getDocument,
@@ -25,6 +25,7 @@ import {
   type ChatMessage,
 } from "@/services/ai.services";
 import axios from "axios";
+import ReactMarkdown from "react-markdown";
 
 type Tab = "chat" | "summary" | "explain";
 
@@ -104,7 +105,7 @@ export default function DocumentDetailPage() {
       try {
         // GET /api/v1/ai/chat-history/:documentId — no AI credits consumed
         const history = await getChatHistory(id);
-        setMsgs(history.map((m) => ({ role: m.role, content: m.content })));
+        setMsgs(history.map((m) => ({ role: m.role.toLowerCase() as "user" | "assistant", content: m.content })));
       } catch {
         // Non-fatal — chat history is optional
       }
@@ -128,7 +129,7 @@ export default function DocumentDetailPage() {
     setChatLoading(true);
     try {
       const data = await chatWithDocument(id, question);
-      setMsgs((p) => [...p, { role: "assistant", content: data?.reply || "" }]);
+      setMsgs((p) => [...p, { role: "assistant", content: data?.answer || "" }]);
     } catch (err) {
       setMsgs((p) => [
         ...p,
@@ -387,16 +388,29 @@ export default function DocumentDetailPage() {
                     {msgs.map((m, i) => (
                       <div
                         key={i}
-                        className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                        className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                          className={`mt-1 flex size-8 shrink-0 items-center justify-center rounded-full ${
                             m.role === "user"
-                              ? "bg-gradient-to-br from-violet-600 to-purple-600 text-white"
-                              : "bg-muted text-foreground"
+                              ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
                           }`}
                         >
-                          {m.content}
+                          {m.role === "user" ? <User className="size-4" /> : <Bot className="size-4" />}
+                        </div>
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                            m.role === "user"
+                              ? "bg-gradient-to-br from-violet-600 to-purple-600 text-white rounded-tr-sm"
+                              : "bg-muted text-foreground prose prose-sm dark:prose-invert max-w-none rounded-tl-sm shadow-sm"
+                          }`}
+                        >
+                          {m.role === "user" ? (
+                            m.content
+                          ) : (
+                            <ReactMarkdown>{m.content}</ReactMarkdown>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -457,8 +471,8 @@ export default function DocumentDetailPage() {
                     {summaryLoading ? "Generating…" : summary ? "Regenerate" : "Generate Summary"}
                   </Button>
                   {summary ? (
-                    <div className="flex-1 overflow-y-auto rounded-xl border border-border/50 bg-muted/20 p-4 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                      {summary}
+                    <div className="flex-1 overflow-y-auto rounded-xl border border-border/50 bg-muted/20 p-4 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{summary}</ReactMarkdown>
                     </div>
                   ) : (
                     !summaryLoading && (
@@ -502,8 +516,8 @@ export default function DocumentDetailPage() {
                     </Button>
                   </form>
                   {explanation ? (
-                    <div className="flex-1 overflow-y-auto rounded-xl border border-amber-200/50 bg-amber-50/30 dark:border-amber-800/30 dark:bg-amber-950/10 p-4 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                      {explanation}
+                    <div className="flex-1 overflow-y-auto rounded-xl border border-amber-200/50 bg-amber-50/30 dark:border-amber-800/30 dark:bg-amber-950/10 p-4 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{explanation}</ReactMarkdown>
                     </div>
                   ) : (
                     !explainLoading && (

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -17,49 +17,23 @@ import {
   ShieldCheck,
   RefreshCw,
   Clock,
-  Loader2,
-  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
-const PAGE_LIFETIME_MS = 15 * 60 * 1000; // 15 minutes
+const AUTO_REDIRECT_MS = 15 * 60 * 1000; // 15 minutes
 
 export default function PaymentFailedPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
-
-  const [phase, setPhase] = useState<"loading" | "valid" | "expired" | "invalid">("loading");
   const [showContent, setShowContent] = useState(false);
-  const [remainingMs, setRemainingMs] = useState(PAGE_LIFETIME_MS);
+  const [remainingMs, setRemainingMs] = useState(AUTO_REDIRECT_MS);
 
-  const validate = useCallback(async () => {
-    if (!token) { setPhase("invalid"); return; }
-
-    try {
-      const res = await fetch(`${API}/api/v1/payments/session-token/${token}`);
-      const json = await res.json();
-
-      if (res.ok && json?.data?.valid) {
-        setRemainingMs(json.data.remainingMs as number);
-        setPhase("valid");
-        setTimeout(() => setShowContent(true), 100);
-      } else if (res.status === 410) {
-        setPhase("expired");
-      } else {
-        setPhase("invalid");
-      }
-    } catch {
-      setPhase("invalid");
-    }
-  }, [token]);
-
-  useEffect(() => { void validate(); }, [validate]);
+  // Show content immediately — Stripe redirects here when payment fails/is cancelled
+  useEffect(() => {
+    setTimeout(() => setShowContent(true), 100);
+  }, []);
 
   // Countdown — redirect to pricing when it hits 0
   useEffect(() => {
-    if (phase !== "valid") return;
     const interval = setInterval(() => {
       setRemainingMs((prev) => {
         if (prev <= 1000) {
@@ -71,7 +45,7 @@ export default function PaymentFailedPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [phase, router]);
+  }, [router]);
 
   const formatTime = (ms: number) => {
     const m = Math.floor(ms / 60000);
@@ -79,58 +53,6 @@ export default function PaymentFailedPage() {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  /* ── Loading ── */
-  if (phase === "loading") {
-    return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <Loader2 className="size-10 animate-spin text-amber-500" />
-          <p className="text-muted-foreground">Loading…</p>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Expired or Invalid ── */
-  if (phase === "expired" || phase === "invalid") {
-    return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-        <Card className="w-full max-w-md text-center shadow-xl">
-          <CardHeader>
-            <div className="mb-4 flex justify-center">
-              <div className="flex size-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                <AlertTriangle className="size-8 text-amber-600 dark:text-amber-400" />
-              </div>
-            </div>
-            <CardTitle>
-              {phase === "expired" ? "Link Expired" : "Invalid Link"}
-            </CardTitle>
-            <CardDescription className="mt-2">
-              {phase === "expired"
-                ? "This page link has expired. No charges were made to your account."
-                : "This link is not valid or has already been used."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Button asChild size="lg" className="w-full">
-              <Link href="/pricing">
-                <RefreshCw className="size-4" />
-                Try Again
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="w-full">
-              <Link href="/dashboard">
-                <LayoutDashboard className="size-4" />
-                Go to Dashboard
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  /* ── Valid Failed Page ── */
   return (
     <section className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-gradient-to-b from-background via-red-50/20 to-background dark:via-red-950/5">
       {/* Subtle background lines */}
@@ -163,7 +85,7 @@ export default function PaymentFailedPage() {
           }`}
         >
           <Clock className="size-3.5" />
-          This page expires in{" "}
+          Redirecting to pricing in{" "}
           <span className="font-bold tabular-nums">{formatTime(remainingMs)}</span>
         </div>
 
@@ -200,7 +122,7 @@ export default function PaymentFailedPage() {
               </div>
             </div>
 
-            {/* Page expiry notice */}
+            {/* Page redirect notice */}
             <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-3 dark:border-amber-800/30 dark:bg-amber-950/20">
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 <Clock className="mb-0.5 mr-1 inline size-3.5" />
@@ -240,22 +162,15 @@ export default function PaymentFailedPage() {
             <p className="text-center text-xs text-muted-foreground">
               Need help?{" "}
               <Link
-                href="/support"
+                href="mailto:support@edupilot.ai"
                 className="font-medium text-foreground underline-offset-4 transition-colors hover:underline"
               >
-                Contact our support team
+                Contact support
               </Link>
             </p>
           </CardContent>
         </Card>
       </div>
-
-      <style>{`
-        @keyframes fadeInLeft {
-          from { opacity: 0; transform: translateX(-12px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
     </section>
   );
 }

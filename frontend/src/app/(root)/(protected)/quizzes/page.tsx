@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -25,25 +24,10 @@ import {
   XCircle,
   Target,
 } from "lucide-react";
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
-
-interface Document {
-  id: string;
-  title?: string;
-  fileName: string;
-  createdAt: string;
-}
-
-interface Quiz {
-  id: string;
-  title: string;
-  totalQuestions: number;
-  score: number;
-  completedAt: string | null;
-  createdAt: string;
-  documentId: { id: string; title?: string; fileName: string };
-}
+import { getDocuments } from "@/services/document.services";
+import { getQuizzesByDocument } from "@/services/quiz.services";
+import type { Document } from "@/services/document.services";
+import type { Quiz } from "@/services/quiz.services";
 
 function ScoreBadge({ score, completed }: { score: number; completed: boolean }) {
   if (!completed) {
@@ -119,16 +103,11 @@ export default function QuizzesPage() {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const getToken = () =>
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const headers = () => ({ Authorization: `Bearer ${getToken()}` });
-
   // Load documents on mount
   useEffect(() => {
     const fetchDocs = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/documents`, { headers: headers() });
-        const docs: Document[] = res.data.data || [];
+        const docs = await getDocuments();
         setDocuments(docs);
         if (docs.length > 0) setSelectedDoc(docs[0].id);
       } catch {
@@ -141,23 +120,24 @@ export default function QuizzesPage() {
   }, []);
 
   // Load quizzes whenever selected doc changes
+  const fetchQuizzesForDoc = useCallback(async (docId: string, force = false) => {
+    if (!force && quizMap[docId] !== undefined) return; // already fetched
+    setLoadingQuizzes(true);
+    try {
+      // Correct endpoint: GET /api/v1/quizzes/document/:documentId
+      const quizzes = await getQuizzesByDocument(docId);
+      setQuizMap((prev) => ({ ...prev, [docId]: quizzes }));
+    } catch {
+      setQuizMap((prev) => ({ ...prev, [docId]: [] }));
+    } finally {
+      setLoadingQuizzes(false);
+    }
+  }, [quizMap]);
+
   useEffect(() => {
     if (!selectedDoc) return;
-    if (quizMap[selectedDoc]) return; // already fetched
-
-    const fetchQuizzes = async () => {
-      setLoadingQuizzes(true);
-      try {
-        const res = await axios.get(`${API_BASE}/quizzes/${selectedDoc}`, { headers: headers() });
-        setQuizMap((prev) => ({ ...prev, [selectedDoc]: res.data.data || [] }));
-      } catch {
-        setQuizMap((prev) => ({ ...prev, [selectedDoc]: [] }));
-      } finally {
-        setLoadingQuizzes(false);
-      }
-    };
-    fetchQuizzes();
-  }, [selectedDoc]);
+    fetchQuizzesForDoc(selectedDoc);
+  }, [selectedDoc, fetchQuizzesForDoc]);
 
   const currentQuizzes = selectedDoc ? quizMap[selectedDoc] ?? [] : [];
   const selectedDocName = documents.find((d) => d.id === selectedDoc);
@@ -245,7 +225,7 @@ export default function QuizzesPage() {
                 </h2>
                 <Button variant="ghost" size="sm" onClick={() => {
                   if (selectedDoc) {
-                    setQuizMap((prev) => { const next = { ...prev }; delete next[selectedDoc]; return next; });
+                    fetchQuizzesForDoc(selectedDoc, true);
                   }
                 }}>
                   <RefreshCw className="size-3.5" /> Refresh

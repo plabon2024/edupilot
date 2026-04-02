@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import axios from "axios";
 import {
   Card,
   CardContent,
@@ -23,25 +22,8 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
-
-interface Question {
-  question: string;
-  options: string[];
-  correctAnswer: string;
-  explanation: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-}
-
-interface Quiz {
-  id: string;
-  title: string;
-  totalQuestions: number;
-  questions: Question[];
-  completedAt: string | null;
-  score: number;
-}
+import { getQuizById, submitQuiz } from "@/services/quiz.services";
+import type { Quiz, QuizQuestion } from "@/services/quiz.services";
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   EASY: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400",
@@ -62,16 +44,11 @@ export default function TakeQuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const getToken = () =>
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/quizzes/quiz/${quizId}`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        const data: Quiz = res.data.data;
+        // Correct endpoint: GET /api/v1/quizzes/:id (not /quizzes/quiz/:id)
+        const data = await getQuizById(quizId);
         if (data.completedAt) {
           // Already completed — redirect to results
           router.replace(`/quizzes/${quizId}/result`);
@@ -93,7 +70,7 @@ export default function TakeQuizPage() {
 
   const handleSubmit = async () => {
     if (!quiz) return;
-    const unanswered = quiz.questions
+    const unanswered = (quiz.questions ?? [])
       .map((_, i) => i)
       .filter((i) => !answers[i]);
     if (unanswered.length > 0) {
@@ -112,17 +89,12 @@ export default function TakeQuizPage() {
         questionIndex: Number(qi),
         selectedAnswer: selected,
       }));
-      await axios.post(
-        `${API_BASE}/quizzes/quiz/${quizId}/submit`,
-        { answers: payload },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+      // Correct endpoint: POST /api/v1/quizzes/:id/submit (not /quizzes/quiz/:id/submit)
+      await submitQuiz(quizId, payload);
       router.push(`/quizzes/${quizId}/result`);
     } catch (err: unknown) {
       const msg =
-        axios.isAxiosError(err)
-          ? err.response?.data?.error || "Submission failed."
-          : "Submission failed.";
+        err instanceof Error ? err.message : "Submission failed.";
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
@@ -156,10 +128,11 @@ export default function TakeQuizPage() {
     );
   }
 
-  const question = quiz.questions[currentIndex];
-  const total = quiz.questions.length;
+  const questions: QuizQuestion[] = quiz.questions ?? [];
+  const question = questions[currentIndex];
+  const total = questions.length;
   const answered = Object.keys(answers).length;
-  const progress = (answered / total) * 100;
+  const progress = total > 0 ? (answered / total) * 100 : 0;
   const selected = answers[currentIndex];
 
   return (
@@ -203,65 +176,67 @@ export default function TakeQuizPage() {
         </div>
 
         {/* Question card */}
-        <Card
-          key={currentIndex}
-          className="border-border/60 shadow-sm"
-          style={{ animation: "fadeIn 0.25s ease-out" }}
-        >
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardDescription className="text-xs font-semibold uppercase tracking-widest">
-                Question {currentIndex + 1} / {total}
-              </CardDescription>
-              {question.difficulty && (
-                <Badge
-                  variant="outline"
-                  className={DIFFICULTY_COLOR[question.difficulty]}
-                >
-                  {question.difficulty}
-                </Badge>
-              )}
-            </div>
-            <CardTitle className="text-base font-semibold leading-snug sm:text-lg">
-              {question.question}
-            </CardTitle>
-          </CardHeader>
+        {question && (
+          <Card
+            key={currentIndex}
+            className="border-border/60 shadow-sm"
+            style={{ animation: "fadeIn 0.25s ease-out" }}
+          >
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardDescription className="text-xs font-semibold uppercase tracking-widest">
+                  Question {currentIndex + 1} / {total}
+                </CardDescription>
+                {question.difficulty && (
+                  <Badge
+                    variant="outline"
+                    className={DIFFICULTY_COLOR[question.difficulty]}
+                  >
+                    {question.difficulty}
+                  </Badge>
+                )}
+              </div>
+              <CardTitle className="text-base font-semibold leading-snug sm:text-lg">
+                {question.question}
+              </CardTitle>
+            </CardHeader>
 
-          <CardContent className="space-y-3">
-            {question.options.map((option, oi) => {
-              const isSelected = selected === option;
-              return (
-                <button
-                  key={oi}
-                  id={`option-${oi}`}
-                  onClick={() => handleSelect(option)}
-                  className={`w-full rounded-lg border px-4 py-3 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-                    isSelected
-                      ? "border-violet-400 bg-violet-50 text-violet-900 shadow-sm ring-2 ring-violet-200 dark:border-violet-600 dark:bg-violet-950/50 dark:text-violet-100 dark:ring-violet-800"
-                      : "border-border/60 bg-card hover:border-border hover:bg-muted/40"
-                  }`}
-                  style={{ animation: `fadeInLeft 0.2s ease-out ${oi * 50}ms both` }}
-                >
-                  <span className="flex items-center gap-3">
-                    <span
-                      className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors ${
-                        isSelected
-                          ? "border-violet-500 bg-violet-500 text-white dark:border-violet-400 dark:bg-violet-400"
-                          : "border-border bg-background"
-                      }`}
-                    >
-                      {String.fromCharCode(65 + oi)}
+            <CardContent className="space-y-3">
+              {question.options.map((option, oi) => {
+                const isSelected = selected === option;
+                return (
+                  <button
+                    key={oi}
+                    id={`option-${oi}`}
+                    onClick={() => handleSelect(option)}
+                    className={`w-full rounded-lg border px-4 py-3 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+                      isSelected
+                        ? "border-violet-400 bg-violet-50 text-violet-900 shadow-sm ring-2 ring-violet-200 dark:border-violet-600 dark:bg-violet-950/50 dark:text-violet-100 dark:ring-violet-800"
+                        : "border-border/60 bg-card hover:border-border hover:bg-muted/40"
+                    }`}
+                    style={{ animation: `fadeInLeft 0.2s ease-out ${oi * 50}ms both` }}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span
+                        className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors ${
+                          isSelected
+                            ? "border-violet-500 bg-violet-500 text-white dark:border-violet-400 dark:bg-violet-400"
+                            : "border-border bg-background"
+                        }`}
+                      >
+                        {String.fromCharCode(65 + oi)}
+                      </span>
+                      {option}
+                      {isSelected && (
+                        <CheckCircle2 className="ml-auto size-4 shrink-0 text-violet-500" />
+                      )}
                     </span>
-                    {option}
-                    {isSelected && (
-                      <CheckCircle2 className="ml-auto size-4 shrink-0 text-violet-500" />
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </CardContent>
-        </Card>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Navigation */}
         <div className="mt-6 flex items-center justify-between gap-3">
@@ -278,7 +253,7 @@ export default function TakeQuizPage() {
 
           {/* Question dots */}
           <div className="flex flex-wrap justify-center gap-1.5">
-            {quiz.questions.map((_, i) => (
+            {questions.map((_, i) => (
               <button
                 key={i}
                 id={`dot-${i}`}

@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import axios from "axios";
 import Link from "next/link";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,23 +23,12 @@ import {
   Eye,
   Filter,
 } from "lucide-react";
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
-
-interface FlashCard {
-  id: string;
-  question: string;
-  answer: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  reviewCount: number;
-  isStarred: boolean;
-}
-interface FlashcardSet {
-  id: string;
-  documentId: { id: string; title?: string; fileName: string } | null;
-  cards: FlashCard[];
-  createdAt: string;
-}
+import {
+  getAllFlashcardSets,
+  reviewFlashcard,
+  toggleStarFlashcard,
+} from "@/services/flashcard.services";
+import type { FlashcardSet, FlashcardCard } from "@/services/flashcard.services";
 
 const DIFF_COLOR: Record<string, string> = {
   EASY: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400",
@@ -60,16 +45,12 @@ export default function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [filter, setFilter] = useState<"all" | "starred" | "unreviewed">("all");
 
-  const token = () =>
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const authHeaders = () => ({ Authorization: `Bearer ${token()}` });
-
   const fetchSets = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const r = await axios.get(`${API_BASE}/flashcards`, { headers: authHeaders() });
-      const data: FlashcardSet[] = r.data.data || [];
+      // Correct endpoint: GET /api/v1/flashcards
+      const data = await getAllFlashcardSets();
       setSets(data);
       if (data.length > 0 && !selectedSet) setSelectedSet(data[0]);
     } catch {
@@ -81,7 +62,7 @@ export default function FlashcardsPage() {
 
   useEffect(() => { fetchSets(); }, [fetchSets]);
 
-  const filteredCards = (): FlashCard[] => {
+  const filteredCards = (): FlashcardCard[] => {
     if (!selectedSet) return [];
     switch (filter) {
       case "starred": return selectedSet.cards.filter(c => c.isStarred);
@@ -100,7 +81,8 @@ export default function FlashcardsPage() {
   const markReviewed = async () => {
     if (!current) return;
     try {
-      await axios.post(`${API_BASE}/flashcards/${current.id}/review`, {}, { headers: authHeaders() });
+      // Correct endpoint: POST /api/v1/flashcards/cards/:cardId/review
+      await reviewFlashcard(current.id);
       const update = (s: FlashcardSet) => ({
         ...s,
         cards: s.cards.map(c => c.id === current.id ? { ...c, reviewCount: c.reviewCount + 1 } : c),
@@ -113,8 +95,11 @@ export default function FlashcardsPage() {
 
   const toggleStar = async (cardId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const card = selectedSet?.cards.find(c => c.id === cardId);
+    if (!card) return;
     try {
-      await axios.put(`${API_BASE}/flashcards/${cardId}/star`, {}, { headers: authHeaders() });
+      // Correct endpoint: PUT /api/v1/flashcards/cards/:cardId/star
+      await toggleStarFlashcard(cardId);
       const update = (s: FlashcardSet) => ({
         ...s,
         cards: s.cards.map(c => c.id === cardId ? { ...c, isStarred: !c.isStarred } : c),
@@ -125,7 +110,7 @@ export default function FlashcardsPage() {
   };
 
   const getDocName = (set: FlashcardSet) =>
-    set.documentId?.title ?? set.documentId?.fileName ?? "Unknown Document";
+    set.document?.title ?? set.document?.fileName ?? "Unknown Document";
 
   const totalReviewed = sets.reduce((acc, s) => acc + s.cards.filter(c => c.reviewCount > 0).length, 0);
   const totalStarred = sets.reduce((acc, s) => acc + s.cards.filter(c => c.isStarred).length, 0);
@@ -251,7 +236,7 @@ export default function FlashcardsPage() {
               {/* Link to doc */}
               {selectedSet?.documentId && (
                 <Button variant="ghost" size="sm" asChild className="mt-2 w-full justify-start text-xs">
-                  <Link href={`/documents/${selectedSet.documentId.id}`}>
+                  <Link href={`/documents/${selectedSet.documentId}`}>
                     <FileText className="size-3.5" />
                     Open Document
                   </Link>

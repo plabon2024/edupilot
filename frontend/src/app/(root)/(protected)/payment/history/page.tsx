@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
 import {
   Card,
   CardContent,
@@ -21,43 +20,44 @@ import {
   Loader2,
   Inbox,
   RefreshCw,
+  Ban,
 } from "lucide-react";
 import Link from "next/link";
+import { getPaymentHistory } from "@/services/payment.services";
+import type { Payment } from "@/services/payment.services";
 
-interface Payment {
-  _id: string;
-  amount: number;
-  currency: string;
-  status: "pending" | "succeeded" | "failed";
-  type: "one-time" | "subscription" | "credit";
-  description?: string;
-  createdAt: string;
-}
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-
+// ── Status badge — uses backend enum casing (SUCCEEDED, PENDING, FAILED, CANCELLED)
 function StatusBadge({ status }: { status: Payment["status"] }) {
-  const config = {
-    succeeded: {
+  const config: Record<
+    Payment["status"],
+    { label: string; icon: React.ElementType; className: string }
+  > = {
+    SUCCEEDED: {
       label: "Succeeded",
       icon: CheckCircle2,
       className:
         "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400",
     },
-    pending: {
+    PENDING: {
       label: "Pending",
       icon: Clock,
       className:
         "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-400",
     },
-    failed: {
+    FAILED: {
       label: "Failed",
       icon: XCircle,
       className:
         "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-400",
     },
+    CANCELLED: {
+      label: "Cancelled",
+      icon: Ban,
+      className:
+        "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400",
+    },
   };
-  const { label, icon: Icon, className } = config[status];
+  const { label, icon: Icon, className } = config[status] ?? config.PENDING;
 
   return (
     <Badge variant="outline" className={className}>
@@ -67,25 +67,29 @@ function StatusBadge({ status }: { status: Payment["status"] }) {
   );
 }
 
+// ── Type badge — uses backend enum casing (SUBSCRIPTION, ONE_TIME, CREDIT)
 function TypeBadge({ type }: { type: Payment["type"] }) {
-  const config = {
-    "one-time": {
-      label: "One-time",
-      className:
-        "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-400",
-    },
-    subscription: {
+  const config: Record<
+    Payment["type"],
+    { label: string; className: string }
+  > = {
+    SUBSCRIPTION: {
       label: "Subscription",
       className:
         "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/50 dark:text-violet-400",
     },
-    credit: {
+    ONE_TIME: {
+      label: "One-time",
+      className:
+        "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-400",
+    },
+    CREDIT: {
       label: "Credit",
       className:
         "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-400",
     },
   };
-  const { label, className } = config[type];
+  const { label, className } = config[type] ?? config.ONE_TIME;
 
   return (
     <Badge variant="outline" className={className}>
@@ -119,11 +123,9 @@ export default function PaymentHistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/payments/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPayments(res.data.data || []);
+      // Correct endpoint: GET /api/v1/payments/history via axiosInstance
+      const data = await getPaymentHistory();
+      setPayments(data);
     } catch {
       setError("Failed to load payment history. Please try again.");
     } finally {
@@ -246,7 +248,7 @@ export default function PaymentHistoryPage() {
               <div className="space-y-3">
                 {payments.map((payment, index) => (
                   <div
-                    key={payment._id}
+                    key={payment.id}
                     id={`payment-row-${index}`}
                     className="group flex flex-col gap-3 rounded-lg border border-border/50 bg-gradient-to-r from-card to-card/80 p-4 transition-all hover:border-border hover:shadow-sm sm:flex-row sm:items-center sm:justify-between"
                     style={{
@@ -261,6 +263,9 @@ export default function PaymentHistoryPage() {
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {formatDate(payment.createdAt)}
+                        {payment.months && payment.months > 1
+                          ? ` · ${payment.months} months`
+                          : ""}
                       </p>
                     </div>
 
@@ -270,7 +275,7 @@ export default function PaymentHistoryPage() {
                       <StatusBadge status={payment.status} />
                       <span
                         className={`ml-auto min-w-[5rem] text-right font-semibold tabular-nums sm:ml-4 ${
-                          payment.status === "failed"
+                          payment.status === "FAILED"
                             ? "text-muted-foreground line-through"
                             : ""
                         }`}
@@ -286,17 +291,10 @@ export default function PaymentHistoryPage() {
         )}
       </div>
 
-      {/* CSS animation */}
       <style>{`
         @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </section>

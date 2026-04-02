@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -21,43 +21,54 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { getSubscriptionStatus, verifyPaymentSession } from "@/services/payment.services";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
-const PAGE_LIFETIME_MS = 15 * 60 * 1000; // 15 minutes
+const AUTO_REDIRECT_MS = 15 * 60 * 1000; // 15 minutes
 
 export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
+  // Stripe redirects with ?session_id=cs_xxx after checkout
+  const sessionId = searchParams.get("session_id");
 
-  const [phase, setPhase] = useState<"loading" | "valid" | "expired" | "invalid">("loading");
+  const [phase, setPhase] = useState<"loading" | "valid" | "invalid">("loading");
   const [showContent, setShowContent] = useState(false);
-  const [remainingMs, setRemainingMs] = useState(PAGE_LIFETIME_MS);
+  const [remainingMs, setRemainingMs] = useState(AUTO_REDIRECT_MS);
 
-  // Validate token with backend
-  const validate = useCallback(async () => {
-    if (!token) { setPhase("invalid"); return; }
+  // Verify subscription was activated by calling /payments/status
+  useEffect(() => {
+    const verify = async () => {
+      if (!sessionId) {
+        setPhase("invalid");
+        return;
+      }
+      try {
+        // Ping the backend to explicitly verify and fulfill the session if webhooks failed/skipped.
+        try {
+          await verifyPaymentSession(sessionId);
+        } catch (e) {
+          console.error("Verification error (may already be verified):", e);
+        }
 
-    try {
-      const res = await fetch(`${API}/api/v1/payments/session-token/${token}`);
-      const json = await res.json();
-
-      if (res.ok && json?.data?.valid) {
-        const remaining = json.data.remainingMs as number;
-        setRemainingMs(remaining);
+        // Give the Stripe webhook/verification a moment to process before checking
+        await new Promise((r) => setTimeout(r, 1000));
+        const status = await getSubscriptionStatus();
+        if (status.isSubscribed) {
+          setPhase("valid");
+          setTimeout(() => setShowContent(true), 100);
+        } else {
+          // Subscription not yet active — still show success
+          setPhase("valid");
+          setTimeout(() => setShowContent(true), 100);
+        }
+      } catch {
+        // Network error — still show success since Stripe redirected here
         setPhase("valid");
         setTimeout(() => setShowContent(true), 100);
-      } else if (res.status === 410) {
-        setPhase("expired");
-      } else {
-        setPhase("invalid");
       }
-    } catch {
-      setPhase("invalid");
-    }
-  }, [token]);
-
-  useEffect(() => { void validate(); }, [validate]);
+    };
+    void verify();
+  }, [sessionId]);
 
   // Countdown timer — redirect when timer hits 0
   useEffect(() => {
@@ -87,14 +98,14 @@ export default function PaymentSuccessPage() {
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-center">
           <Loader2 className="size-10 animate-spin text-violet-500" />
-          <p className="text-muted-foreground">Verifying your payment…</p>
+          <p className="text-muted-foreground">Confirming your payment…</p>
         </div>
       </div>
     );
   }
 
-  /* ── Expired or Invalid ── */
-  if (phase === "expired" || phase === "invalid") {
+  /* ── Invalid (no session_id param) ── */
+  if (phase === "invalid") {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
         <Card className="w-full max-w-md text-center shadow-xl">
@@ -104,13 +115,10 @@ export default function PaymentSuccessPage() {
                 <AlertTriangle className="size-8 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
-            <CardTitle>
-              {phase === "expired" ? "Link Expired" : "Invalid Link"}
-            </CardTitle>
+            <CardTitle>Invalid Link</CardTitle>
             <CardDescription className="mt-2">
-              {phase === "expired"
-                ? "This payment confirmation link has expired (15-minute limit). Your subscription is still active if payment was successful."
-                : "This link is not valid. It may have already been used."}
+              This page can only be accessed after a successful checkout. If you
+              completed a payment, your subscription is active.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -180,7 +188,7 @@ export default function PaymentSuccessPage() {
           }`}
         >
           <Clock className="size-3.5" />
-          This page is available for{" "}
+          Redirecting to dashboard in{" "}
           <span className="font-bold tabular-nums">{formatTime(remainingMs)}</span>
         </div>
 
@@ -232,7 +240,7 @@ export default function PaymentSuccessPage() {
               ))}
             </div>
 
-            {/* Note about page expiry */}
+            {/* Note about redirect */}
             <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-3 dark:border-amber-800/30 dark:bg-amber-950/20">
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 <Clock className="mb-0.5 mr-1 inline size-3.5" />

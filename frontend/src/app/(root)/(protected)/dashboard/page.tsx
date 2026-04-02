@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useState } from "react";
+import axiosInstance from "@/lib/axiosInstance";
 import Link from "next/link";
 import {
   Card,
@@ -29,7 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000") + "/api/v1";
+
 
 interface DashboardData {
   overview: {
@@ -96,27 +96,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getToken = () =>
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_BASE}/progress/dashboard`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      const res = await axiosInstance.get("/progress/dashboard");
       setData(res.data.data);
     } catch {
       setError("Failed to load dashboard data.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [fetchDashboard]);
 
   const ov = data?.overview;
 
