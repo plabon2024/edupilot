@@ -64,7 +64,7 @@ export const clearAuthTokens = () => {
 /**
  * Set user info in localStorage
  */
-export const setUserInfo = (user: any) => {
+export const setUserInfo = (user: unknown) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('user', JSON.stringify(user));
   }
@@ -111,7 +111,7 @@ export const logoutUser = () => {
 /**
  * Handle OAuth success
  */
-export const handleOAuthSuccess = (token: string, user: any) => {
+export const handleOAuthSuccess = (token: string, user: unknown) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('accessToken', token);
     localStorage.setItem('user', JSON.stringify(user));

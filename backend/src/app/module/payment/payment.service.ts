@@ -251,6 +251,66 @@ const cancelPayment = async (userId: string, paymentId: string) => {
   });
 };
 
+/* ── POST /api/v1/payments/verify ────────────────────────────── */
+const verifyPayment = async (userId: string, sessionId: string) => {
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (!session) throw new AppError(status.NOT_FOUND, 'Stripe session not found');
+
+  if (session.payment_status !== 'paid') {
+    return { message: 'Payment not completed yet' };
+  }
+
+  const payment = await prisma.payment.findFirst({
+    where: { stripePaymentIntentId: session.id },
+  });
+
+  if (!payment) {
+    throw new AppError(status.NOT_FOUND, 'Associated payment record not found');
+  }
+
+  if (payment.status === 'SUCCEEDED') {
+    return { message: 'Payment already verified' };
+  }
+
+  // Fulfill the payment synchronously
+  const monthsStr = session.metadata?.months;
+  const paidMonths = session.amount_total
+    ? Math.round(session.amount_total / MONTHLY_PRICE_CENTS)
+    : Number(monthsStr || 1);
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  
+  await prisma.$transaction(async (tx) => {
+    const baseDate =
+      user?.subscriptionEndsAt && user.subscriptionEndsAt > new Date()
+        ? user.subscriptionEndsAt
+        : new Date();
+    const newEnd = addMonths(baseDate, paidMonths);
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        isSubscribed: true,
+        subscriptionEndsAt: newEnd,
+        status: 'ACTIVE',
+      },
+    });
+
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'SUCCEEDED',
+        amount: (session.amount_total ?? 0) / 100,
+        months: paidMonths,
+        description: `EduPilot subscription — ${paidMonths} month${paidMonths > 1 ? 's' : ''}`,
+        stripePaymentIntentId: (session.payment_intent as string) ?? session.id,
+      },
+    });
+  });
+
+  return { message: 'Payment verified successfully' };
+};
+
 export const PaymentService = {
   createCheckoutSession,
   handlerStripeWebhookEvent,
@@ -258,4 +318,5 @@ export const PaymentService = {
   getPaymentHistory,
   getPaymentById,
   cancelPayment,
+  verifyPayment,
 };

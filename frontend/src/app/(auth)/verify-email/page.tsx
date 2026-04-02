@@ -7,10 +7,10 @@ import { VerifyEmailInput, verifyEmailSchema } from '@/schemas/auth.schema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-export default function VerifyEmailPage() {
+function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { verifyEmail, isLoading, error: authError } = useAuth();
@@ -41,8 +41,8 @@ export default function VerifyEmailPage() {
       setIsSubmitting(true);
       setErrorMessage(null);
       await verifyEmail(data.email, data.otp);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Email verification failed');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Email verification failed');
       setShowResend(true);
     } finally {
       setIsSubmitting(false);
@@ -128,5 +128,13 @@ export default function VerifyEmailPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <VerifyEmailForm />
+    </Suspense>
   );
 }

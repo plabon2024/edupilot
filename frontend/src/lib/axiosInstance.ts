@@ -38,7 +38,7 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as any;
+    const originalRequest = error.config as import('axios').AxiosRequestConfig & { _retry?: boolean };
 
     // If we get a 401 and haven't already retried, try to refresh the token
     if (error.response?.status === 401 && !originalRequest._retry) {

@@ -22,6 +22,7 @@ import {
   Plus,
   Minus,
 } from "lucide-react";
+import { createCheckoutSession } from "@/services/payment.services";
 
 const MONTHLY_PRICE = 9.99;
 
@@ -74,28 +75,9 @@ export default function PricingPage() {
     setError(null);
     setLoading(true);
     try {
-      const token = localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken") || "";
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000"}/api/v1/payments/checkout`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-          body: JSON.stringify({ months }),
-        }
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json?.data?.url) {
-        throw new Error(json?.message ?? "Failed to create checkout session");
-      }
-
-      // Redirect to Stripe-hosted checkout page
-      window.location.href = json.data.url;
+      // Uses axiosInstance — auth token injected automatically
+      const { url } = await createCheckoutSession(months);
+      window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);

@@ -40,8 +40,8 @@ export default function ResetPasswordPage() {
       setIsSubmitting(true);
       setErrorMessage(null);
       await resetPassword(data.email, data.otp, data.newPassword);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Password reset failed');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Password reset failed');
     } finally {
       setIsSubmitting(false);
     }

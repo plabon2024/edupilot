@@ -8,8 +8,8 @@ import { jwtDecode } from 'jwt-decode';
 export const decodeToken = (token: string) => {
   try {
     return jwtDecode(token);
-  } catch (error) {
-    console.error('Error decoding token:', error);
+  } catch {
+    console.error('Error decoding token');
     return null;
   }
 };
@@ -19,10 +19,10 @@ export const decodeToken = (token: string) => {
  */
 export const isTokenExpired = (token: string): boolean => {
   try {
-    const decoded: any = jwtDecode(token);
+    const decoded = jwtDecode<{exp?: number, [key: string]: unknown}>(token);
     if (!decoded.exp) return true;
     return decoded.exp * 1000 < Date.now();
-  } catch (error) {
+  } catch {
     return true;
   }
 };
@@ -32,11 +32,11 @@ export const isTokenExpired = (token: string): boolean => {
  */
 export const isTokenExpiringSoon = (token: string): boolean => {
   try {
-    const decoded: any = jwtDecode(token);
+    const decoded = jwtDecode<{exp?: number, [key: string]: unknown}>(token);
     if (!decoded.exp) return true;
     const fiveMinutesInMs = 5 * 60 * 1000;
     return decoded.exp * 1000 - Date.now() < fiveMinutesInMs;
-  } catch (error) {
+  } catch {
     return true;
   }
 };
@@ -46,9 +46,9 @@ export const isTokenExpiringSoon = (token: string): boolean => {
  */
 export const getTokenExpirationTime = (token: string): number | null => {
   try {
-    const decoded: any = jwtDecode(token);
+    const decoded = jwtDecode<{exp?: number, [key: string]: unknown}>(token);
     return decoded.exp ? decoded.exp * 1000 : null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -62,7 +62,7 @@ export const getTimeUntilExpiration = (token: string): number | null => {
     if (!expTime) return null;
     const timeRemaining = expTime - Date.now();
     return timeRemaining > 0 ? timeRemaining : 0;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

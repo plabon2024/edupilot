@@ -47,8 +47,8 @@ export default function ChangePasswordPage() {
       setTimeout(() => {
         router.push('/profile');
       }, 2000);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to change password');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
       setIsSubmitting(false);
     }

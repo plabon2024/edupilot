@@ -11,7 +11,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login: authLogin, googleLogin, isLoading, error: authError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -29,8 +28,8 @@ export default function LoginPage() {
       setIsSubmitting(true);
       setErrorMessage(null);
       await authLogin(data);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Login failed');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -41,8 +40,8 @@ export default function LoginPage() {
       setIsSubmitting(true);
       setErrorMessage(null);
       await googleLogin('/dashboard');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Google login failed');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Google login failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +133,7 @@ export default function LoginPage() {
           </Button>
 
           <p className="text-center text-sm text-gray-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-blue-600 hover:text-blue-500 font-medium">
               Sign up
             </Link>

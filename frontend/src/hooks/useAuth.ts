@@ -4,6 +4,7 @@ import { clearAuthTokens, clearUserInfo, getAuthTokens, getUserInfo, setAuthToke
 import { authAPI } from '@/lib/axiosInstance';
 import { isTokenExpired } from '@/lib/tokenUtils';
 import { clearAuthCookies, getNewTokensWithRefreshToken } from '@/services/auth.services';
+import { AxiosError } from 'axios';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -40,6 +41,19 @@ export const useAuth = (): UseAuthReturn => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
+    try {
+      const tokens = getAuthTokens();
+      if (!tokens?.refreshToken) return false;
+
+      const success = await getNewTokensWithRefreshToken(tokens.refreshToken);
+      return success;
+    } catch (err) {
+      console.error('Token refresh failed:', err);
+      return false;
+    }
+  }, []);
+
   // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
@@ -72,27 +86,29 @@ export const useAuth = (): UseAuthReturn => {
     };
 
     initAuth();
-  }, []);
+  }, [refreshAccessToken]);
 
   const register = useCallback(
     async (data: { name: string; email: string; password: string }) => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await authAPI.register(data);
+        await authAPI.register(data);
 
-        if (response.data?.accessToken && response.data?.refreshToken) {
-          setAuthTokens(response.data.accessToken, response.data.refreshToken);
-          setUserInfo(response.data.user);
-          setUser(response.data.user as User);
-          setIsAuthenticated(true);
+        // Clear any auth cookies and local tokens set by the backend auto-login behavior
+        await clearAuthCookies();
+        clearAuthTokens();
 
-          // Navigate to verify email
-          router.push('/verify-email');
-        }
-      } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Registration failed';
+        // Do not set tokens or authenticate until email is verified
+        // Navigate to verify email
+        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      } catch (err: unknown) {
+        const axErr = err as AxiosError<{ message: string }>;
+        const errorMessage = axErr.response?.data?.message || axErr.message || 'Error occurred';
         setError(errorMessage);
+        if (errorMessage.includes('not verified')) {
+          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+        }
         throw new Error(errorMessage);
       } finally {
         setIsLoading(false);
@@ -117,9 +133,13 @@ export const useAuth = (): UseAuthReturn => {
           // Navigate to dashboard
           router.push('/dashboard');
         }
-      } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Login failed';
+      } catch (err: unknown) {
+        const axErr = err as AxiosError<{ message: string }>;
+        const errorMessage = axErr.response?.data?.message || axErr.message || 'Login failed';
         setError(errorMessage);
+        if (errorMessage.includes('not verified')) {
+          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+        }
         throw new Error(errorMessage);
       } finally {
         setIsLoading(false);
@@ -152,8 +172,9 @@ export const useAuth = (): UseAuthReturn => {
         setError(null);
         await authAPI.verifyEmail({ email, otp });
         router.push('/login');
-      } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Email verification failed';
+      } catch (err: unknown) {
+        const axErr = err as AxiosError<{ message: string }>;
+        const errorMessage = axErr.response?.data?.message || axErr.message || 'Email verification failed';
         setError(errorMessage);
         throw new Error(errorMessage);
       } finally {
@@ -169,8 +190,9 @@ export const useAuth = (): UseAuthReturn => {
       setError(null);
       await authAPI.forgetPassword({ email });
       router.push(`/reset-password?email=${encodeURIComponent(email)}`);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to send reset email';
+    } catch (err: unknown) {
+      const axErr = err as AxiosError<{ message: string }>;
+      const errorMessage = axErr.response?.data?.message || axErr.message || 'Failed to send reset email';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -185,8 +207,9 @@ export const useAuth = (): UseAuthReturn => {
         setError(null);
         await authAPI.resetPassword({ email, otp, newPassword });
         router.push('/login');
-      } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Password reset failed';
+      } catch (err: unknown) {
+        const axErr = err as AxiosError<{ message: string }>;
+        const errorMessage = axErr.response?.data?.message || axErr.message || 'Password reset failed';
         setError(errorMessage);
         throw new Error(errorMessage);
       } finally {
@@ -203,8 +226,9 @@ export const useAuth = (): UseAuthReturn => {
         setError(null);
         await authAPI.changePassword({ currentPassword, newPassword });
         setError(null);
-      } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Password change failed';
+      } catch (err: unknown) {
+        const axErr = err as AxiosError<{ message: string }>;
+        const errorMessage = axErr.response?.data?.message || axErr.message || 'Password change failed';
         setError(errorMessage);
         throw new Error(errorMessage);
       } finally {
@@ -224,8 +248,9 @@ export const useAuth = (): UseAuthReturn => {
           // Redirect to Google OAuth
           window.location.href = response.url;
         }
-      } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Google login failed';
+      } catch (err: unknown) {
+        const axErr = err as AxiosError<{ message: string }>;
+        const errorMessage = axErr.response?.data?.message || axErr.message || 'Google login failed';
         setError(errorMessage);
         throw new Error(errorMessage);
       } finally {
@@ -235,18 +260,6 @@ export const useAuth = (): UseAuthReturn => {
     []
   );
 
-  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
-    try {
-      const tokens = getAuthTokens();
-      if (!tokens?.refreshToken) return false;
-
-      const success = await getNewTokensWithRefreshToken(tokens.refreshToken);
-      return success;
-    } catch (err) {
-      console.error('Token refresh failed:', err);
-      return false;
-    }
-  }, []);
 
   return {
     user,

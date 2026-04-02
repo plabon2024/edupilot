@@ -12,8 +12,8 @@ export const jwtUtils = {
    */
   verifyToken: (
     token: string,
-    secretKey?: string
-  ): { success: boolean; data?: any } => {
+    _secretKey?: string
+  ): { success: boolean; data?: unknown } => {
     try {
       // Just a basic structure check, actual verification happens on backend
       const parts = token.split('.');

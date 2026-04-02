@@ -93,8 +93,8 @@ export async function generateSummary(documentId: string): Promise<{ summary: st
 export async function chatWithDocument(
   documentId: string,
   question: string
-): Promise<{ reply: string }> {
-  const response = await axiosInstance.post<ApiResponse<{ reply: string }>>(
+): Promise<{ answer: string }> {
+  const response = await axiosInstance.post<ApiResponse<{ answer: string }>>(
     '/ai/chat',
     { documentId, question }
   );

@@ -97,6 +97,22 @@ const cancelPayment = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+/* ── POST /api/v1/payments/verify ───────────────────────────── */
+const verifyPayment = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) throw new AppError(status.UNAUTHORIZED, 'Unauthorized');
+
+    const { sessionId } = req.body;
+    if (!sessionId) throw new AppError(status.BAD_REQUEST, 'Missing session id');
+
+    const data = await PaymentService.verifyPayment(userId, sessionId);
+    res.status(status.OK).json({ success: true, message: 'Payment verification completed', data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const PaymentController = {
   checkout,
   handleStripeWebhookEvent,
@@ -104,4 +120,5 @@ export const PaymentController = {
   getPaymentHistory,
   getPaymentById,
   cancelPayment,
+  verifyPayment,
 };

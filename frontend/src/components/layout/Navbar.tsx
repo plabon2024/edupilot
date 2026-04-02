@@ -68,10 +68,44 @@ export default function Navbar() {
 
           {/* Authenticated Nav */}
           {isAuthenticated && !isLoading && (
-            <nav className="hidden md:flex items-center gap-8">
+            <nav className="hidden md:flex items-center gap-6">
               <Link href={getDashboardLink()} className={navLinkClasses}>
                 Dashboard
               </Link>
+              {user?.role !== "ADMIN" ? (
+                <>
+                  <Link href="/documents" className={navLinkClasses}>
+                    Documents
+                  </Link>
+                  <Link href="/flashcards" className={navLinkClasses}>
+                    Flashcards
+                  </Link>
+                  <Link href="/quizzes" className={navLinkClasses}>
+                    Quizzes
+                  </Link>
+                  <Link href="/progress" className={navLinkClasses}>
+                    Progress
+                  </Link>
+                  <Link href="/payment" className={navLinkClasses}>
+                    Billing
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/admin/users" className={navLinkClasses}>
+                    Users
+                  </Link>
+                  <Link href="/admin/documents" className={navLinkClasses}>
+                    Documents
+                  </Link>
+                  <Link href="/admin/payments" className={navLinkClasses}>
+                    Payments
+                  </Link>
+                  <Link href="/admin/analytics" className={navLinkClasses}>
+                    Analytics
+                  </Link>
+                </>
+              )}
               <Link href="/pricing" className={navLinkClasses}>
                 Pricing
               </Link>
@@ -192,6 +226,76 @@ export default function Navbar() {
                 >
                   Dashboard
                 </Link>
+                {user?.role !== "ADMIN" ? (
+                  <>
+                    <Link
+                      href="/documents"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Documents
+                    </Link>
+                    <Link
+                      href="/flashcards"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Flashcards
+                    </Link>
+                    <Link
+                      href="/quizzes"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Quizzes
+                    </Link>
+                    <Link
+                      href="/progress"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Progress
+                    </Link>
+                    <Link
+                      href="/payment"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Billing
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/admin/users"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Users
+                    </Link>
+                    <Link
+                      href="/admin/documents"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Documents
+                    </Link>
+                    <Link
+                      href="/admin/payments"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Payments
+                    </Link>
+                    <Link
+                      href="/admin/analytics"
+                      className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Analytics
+                    </Link>
+                  </>
+                )}
                 <Link
                   href="/pricing"
                   className="px-4 py-3 text-base font-medium rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-all duration-200"

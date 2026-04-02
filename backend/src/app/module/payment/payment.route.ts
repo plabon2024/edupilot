@@ -8,6 +8,8 @@ const router = Router();
 // POST /api/v1/payments/checkout        — create Stripe Checkout Session (redirects to hosted page)
 router.post('/checkout', checkAuth(Role.ADMIN, Role.USER), PaymentController.checkout);
 
+// POST /api/v1/payments/verify          — verify Stripe Checkout Session locally
+router.post('/verify', checkAuth(Role.ADMIN, Role.USER), PaymentController.verifyPayment);
 
 // POST /api/v1/payments/webhook         — Stripe webhook (raw body, no auth)
 router.post(

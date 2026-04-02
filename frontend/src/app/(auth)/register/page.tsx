@@ -28,8 +28,8 @@ export default function RegisterPage() {
       setErrorMessage(null);
       const { confirmPassword, ...submitData } = data;
       await authRegister(submitData);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setIsSubmitting(false);
     }

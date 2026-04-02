@@ -30,8 +30,8 @@ export default function ForgotPasswordPage() {
       setSuccessMessage(null);
       await forgetPassword(data.email);
       setSuccessMessage('Password reset link has been sent to your email');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to send reset email');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to send reset email');
     } finally {
       setIsSubmitting(false);
     }

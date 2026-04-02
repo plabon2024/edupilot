@@ -334,13 +334,13 @@ const getUsersGrowth = async () => {
     { date: string; new_users: bigint }[]
   >`
     SELECT
-      TO_CHAR(DATE_TRUNC('day', "created_at"), 'YYYY-MM-DD') AS date,
+      TO_CHAR(DATE_TRUNC('day', "createdAt"), 'YYYY-MM-DD') AS date,
       COUNT(*) AS new_users
     FROM "user"
-    WHERE "created_at" >= ${thirtyDaysAgo}
-      AND "is_deleted" = false
-    GROUP BY DATE_TRUNC('day', "created_at")
-    ORDER BY DATE_TRUNC('day', "created_at") ASC
+    WHERE "createdAt" >= ${thirtyDaysAgo}
+      AND "isDeleted" = false
+    GROUP BY DATE_TRUNC('day', "createdAt")
+    ORDER BY DATE_TRUNC('day', "createdAt") ASC
   `;
 
   return rows.map((r: { date: string; new_users: bigint }) => ({ date: r.date, newUsers: Number(r.new_users) }));
@@ -353,8 +353,8 @@ const getRevenue = async () => {
     `,
     prisma.$queryRaw<{ year: number; month: number; revenue: number; transactions: bigint }[]>`
       SELECT
-        EXTRACT(YEAR  FROM "created_at")::int  AS year,
-        EXTRACT(MONTH FROM "created_at")::int  AS month,
+        EXTRACT(YEAR  FROM "createdAt")::int  AS year,
+        EXTRACT(MONTH FROM "createdAt")::int  AS month,
         SUM(amount)                            AS revenue,
         COUNT(*)                               AS transactions
       FROM payment
