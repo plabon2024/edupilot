@@ -51,7 +51,7 @@ export interface QuizResults {
   quiz: {
     id: string;
     title: string;
-    document: { title?: string } | null;
+    document: { title?: string; fileName?: string } | null;
     score: number;
     totalQuestions: number;
     completedAt: string | null;

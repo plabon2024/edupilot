@@ -3,10 +3,10 @@
 import { getNewTokensWithRefreshToken } from '@/services/auth.services';
 import axios, { AxiosError, AxiosInstance } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
-if (!API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_BASE_URL is not defined');
+if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+  console.warn('Warning: NEXT_PUBLIC_API_BASE_URL is not defined. API calls will fail at runtime.');
 }
 
 // Create axios instance

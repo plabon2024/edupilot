@@ -3,10 +3,10 @@
 import { setTokenInCookies } from '@/lib/jwtUtils';
 import { cookies } from 'next/headers';
 
-const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
-if (!BASE_API_URL) {
-  throw new Error('NEXT_PUBLIC_API_BASE_URL is not defined');
+if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+  console.warn('Warning: NEXT_PUBLIC_API_BASE_URL is not defined. API calls will fail at runtime.');
 }
 
 export async function getNewTokensWithRefreshToken(refreshToken: string): Promise<boolean> {

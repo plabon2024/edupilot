@@ -32,7 +32,7 @@ export async function proxy (request : NextRequest) {
        let userRole: UserRole | null = null;
 
        if(decodedAccessToken){
-            userRole = decodedAccessToken.role as UserRole;
+            userRole = (decodedAccessToken as any).role as UserRole;
        }
 
        const routerOwner = getRouteOwner(pathname);

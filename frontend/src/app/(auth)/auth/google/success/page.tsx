@@ -3,9 +3,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
-export default function GoogleSuccessPage() {
+function GoogleSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshAccessToken } = useAuth();
@@ -74,4 +74,12 @@ export default function GoogleSuccessPage() {
   }
 
   return null;
+}
+
+export default function GoogleSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50">Loading...</div>}>
+      <GoogleSuccessContent />
+    </Suspense>
+  );
 }

@@ -16,6 +16,10 @@ interface User {
   emailVerified: boolean;
   status?: string;
   needPasswordChange?: boolean;
+  image?: string | null;
+  isSubscribed?: boolean;
+  subscriptionEndsAt?: string | null;
+  createdAt?: string;
 }
 
 interface UseAuthReturn {

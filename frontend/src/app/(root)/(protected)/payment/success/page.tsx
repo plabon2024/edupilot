@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -25,7 +25,7 @@ import { getSubscriptionStatus, verifyPaymentSession } from "@/services/payment.
 
 const AUTO_REDIRECT_MS = 15 * 60 * 1000; // 15 minutes
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   // Stripe redirects with ?session_id=cs_xxx after checkout
@@ -291,5 +291,13 @@ export default function PaymentSuccessPage() {
         }
       `}</style>
     </section>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">Loading...</div>}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
