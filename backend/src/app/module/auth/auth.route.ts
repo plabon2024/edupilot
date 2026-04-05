@@ -23,15 +23,6 @@ router.post('/change-password', checkAuth(Role.ADMIN, Role.USER), AuthController
 // POST /api/v1/auth/logout
 router.post('/logout', checkAuth(Role.ADMIN, Role.USER), AuthController.logoutUser);
 
-// POST /api/v1/auth/verify-email
-router.post('/verify-email', AuthController.verifyEmail);
-
-// POST /api/v1/auth/forget-password
-router.post('/forget-password', AuthController.forgetPassword);
-
-// POST /api/v1/auth/reset-password
-router.post('/reset-password', AuthController.resetPassword);
-
 // GET  /api/v1/auth/login/google          — initiates Google OAuth
 router.get('/login/google', AuthController.googleLogin);
 

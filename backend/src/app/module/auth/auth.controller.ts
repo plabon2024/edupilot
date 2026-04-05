@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import status from 'http-status';
+import { envVars } from '../../config';
 import AppError from '../../errors/AppError';
 import { auth } from '../../lib/auth';
-import { envVars } from '../../config';
 import { CookieUtils } from '../../utils/cookie';
 import { tokenUtils } from '../../utils/token';
 import { AuthService } from './auth.service';
@@ -120,33 +120,6 @@ const logoutUser = async (req: Request, res: Response, next: NextFunction) => {
   } catch (error) { next(error); }
 };
 
-/* ── POST /api/v1/auth/verify-email ─────────────────────────── */
-const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email, otp } = req.body as { email: string; otp: string };
-    await AuthService.verifyEmail(email, otp);
-    res.status(status.OK).json({ success: true, message: 'Email verified successfully' });
-  } catch (error) { next(error); }
-};
-
-/* ── POST /api/v1/auth/forget-password ──────────────────────── */
-const forgetPassword = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email } = req.body as { email: string };
-    await AuthService.forgetPassword(email);
-    res.status(status.OK).json({ success: true, message: 'Password reset OTP sent to email' });
-  } catch (error) { next(error); }
-};
-
-/* ── POST /api/v1/auth/reset-password ───────────────────────── */
-const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { email, otp, newPassword } = req.body as { email: string; otp: string; newPassword: string };
-    await AuthService.resetPassword(email, otp, newPassword);
-    res.status(status.OK).json({ success: true, message: 'Password reset successfully' });
-  } catch (error) { next(error); }
-};
-
 /* ── GET /api/v1/auth/login/google ──────────────────────────── */
 const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -237,9 +210,6 @@ export const AuthController = {
   getNewToken,
   changePassword,
   logoutUser,
-  verifyEmail,
-  forgetPassword,
-  resetPassword,
   googleLogin,
   googleLoginSuccess,
   handleOAuthError,

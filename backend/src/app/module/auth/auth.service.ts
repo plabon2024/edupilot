@@ -31,23 +31,7 @@ const registerUser = async (payload: IRegisterUserPayload) => {
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    if (!existingUser.emailVerified) {
-      const recentOtp = await prisma.verification.findFirst({
-        where: { identifier: { contains: email } },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (recentOtp && recentOtp.expiresAt > new Date()) {
-        throw new AppError(status.TOO_MANY_REQUESTS, 'An OTP was recently sent. Please wait 10 minutes before requesting a new one.');
-      }
-
-      await auth.api.sendVerificationOTP({
-        body: { email, type: "email-verification" }
-      });
-      throw new AppError(status.BAD_REQUEST, 'User exists but not verified. A new OTP has been sent to your email.');
-    } else {
-      throw new AppError(status.BAD_REQUEST, 'User already exists');
-    }
+    throw new AppError(status.BAD_REQUEST, 'User already exists');
   }
 
   const data = await auth.api.signUpEmail({ body: { name, email, password } });
@@ -56,6 +40,12 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     throw new AppError(status.BAD_REQUEST, 'Registration failed');
   }
 
+  // Set email as verified immediately
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { emailVerified: true },
+  });
+
   const { accessToken, refreshToken } = buildTokens({
     userId: data.user.id,
     role: data.user.role,
@@ -63,32 +53,15 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     email: data.user.email,
     status: data.user.status,
     isDeleted: data.user.isDeleted,
-    emailVerified: data.user.emailVerified,
+    emailVerified: true,
   });
 
-  return { user: data.user, token: data.token, accessToken, refreshToken };
+  return { user: { ...data.user, emailVerified: true }, token: data.token, accessToken, refreshToken };
 };
 
 /* ── POST /api/v1/auth/login ────────────────────────────────── */
 const loginUser = async (payload: ILoginUserPayload) => {
   const { email, password } = payload;
-
-  const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser && !existingUser.emailVerified) {
-    const recentOtp = await prisma.verification.findFirst({
-      where: { identifier: { contains: email } },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (recentOtp && recentOtp.expiresAt > new Date()) {
-      throw new AppError(status.TOO_MANY_REQUESTS, 'An OTP was recently sent. Please wait 10 minutes before requesting a new one.');
-    }
-
-    await auth.api.sendVerificationOTP({
-      body: { email, type: "email-verification" }
-    });
-    throw new AppError(status.BAD_REQUEST, 'Email is not verified. A new OTP has been sent to your email.');
-  }
 
   const data = await auth.api.signInEmail({ body: { email, password } });
 
@@ -211,53 +184,6 @@ const logoutUser = async (sessionToken: string) => {
   });
 };
 
-/* ── POST /api/v1/auth/verify-email ─────────────────────────── */
-const verifyEmail = async (email: string, otp: string) => {
-  const result = await auth.api.verifyEmailOTP({ body: { email, otp } });
-
-  // Persist emailVerified flag if Better-Auth hasn't already done so
-  if (result.status && result.user && !result.user.emailVerified) {
-    await prisma.user.update({
-      where: { email },
-      data: { emailVerified: true },
-    });
-  }
-};
-
-/* ── POST /api/v1/auth/forget-password ──────────────────────── */
-const forgetPassword = async (email: string) => {
-  const user = await prisma.user.findUnique({ where: { email } });
-
-  if (!user) throw new AppError(status.NOT_FOUND, 'User not found');
-  if (!user.emailVerified) throw new AppError(status.BAD_REQUEST, 'Email not verified');
-  if (user.isDeleted || user.status === UserStatus.INACTIVE)
-    throw new AppError(status.NOT_FOUND, 'User not found');
-
-  await auth.api.requestPasswordResetEmailOTP({ body: { email } });
-};
-
-/* ── POST /api/v1/auth/reset-password ───────────────────────── */
-const resetPassword = async (email: string, otp: string, newPassword: string) => {
-  const user = await prisma.user.findUnique({ where: { email } });
-
-  if (!user) throw new AppError(status.NOT_FOUND, 'User not found');
-  if (!user.emailVerified) throw new AppError(status.BAD_REQUEST, 'Email not verified');
-  if (user.isDeleted || user.status === UserStatus.INACTIVE)
-    throw new AppError(status.NOT_FOUND, 'User not found');
-
-  await auth.api.resetPasswordEmailOTP({ body: { email, otp, password: newPassword } });
-
-  if (user.needPasswordChange) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { needPasswordChange: false },
-    });
-  }
-
-  // revoke all sessions after password reset
-  await prisma.session.deleteMany({ where: { userId: user.id } });
-};
-
 /* ── Google OAuth success callback ──────────────────────────── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const googleLoginSuccess = async (session: Record<string, any>) => {
@@ -281,8 +207,5 @@ export const AuthService = {
   getNewToken,
   changePassword,
   logoutUser,
-  verifyEmail,
-  forgetPassword,
-  resetPassword,
   googleLoginSuccess,
 };
