@@ -7,15 +7,16 @@ import { AdminUser, PaginatedResponse, SubscriptionPlan } from '@/types/admin.ty
 import {
   ShieldAlert, ShieldCheck, UserCog, Ghost, Search, Filter,
   Trash2, X, ChevronDown, RefreshCw, Eye, CreditCard,
+  ChevronLeft, ChevronRight, Mail, CalendarDays,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type StatusFilter      = '' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-type SubscribedFilter  = '' | 'true' | 'false';
+type StatusFilter     = '' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+type SubscribedFilter = '' | 'true' | 'false';
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// ── Badges ────────────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     ACTIVE:    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
@@ -41,7 +42,73 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-// ── Detail Modal ───────────────────────────────────────────────────────────────
+// ── Mobile User Card ──────────────────────────────────────────────────────────
+function MobileUserCard({
+  user,
+  onStatusChange,
+}: {
+  user: AdminUser;
+  onStatusChange: (id: string, status: string) => Promise<void>;
+}) {
+  return (
+    <div className="p-4 border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        {/* Avatar + name */}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm text-foreground truncate">{user.name}</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+              <Mail className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </p>
+          </div>
+        </div>
+        {/* Badges */}
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <StatusBadge status={user.status} />
+          <RoleBadge role={user.role} />
+        </div>
+      </div>
+
+      {/* Meta row */}
+      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <CreditCard className="w-3 h-3" />{user.subscriptionPlan}
+        </span>
+        <span className="flex items-center gap-1">
+          <CalendarDays className="w-3 h-3" />
+          {new Date(user.createdAt).toLocaleDateString()}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-3 flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" asChild>
+          <Link href={`/admin/users/${user.id}`}>
+            <Eye className="w-3.5 h-3.5 mr-1" /> View
+          </Link>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`flex-1 h-8 text-xs ${
+            user.status === 'ACTIVE'
+              ? 'border-red-400/60 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
+              : 'border-green-400/60 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30'
+          }`}
+          onClick={() => onStatusChange(user.id, user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
+        >
+          {user.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Detail Modal ──────────────────────────────────────────────────────────────
 function UserDetailModal({
   user,
   onClose,
@@ -66,8 +133,8 @@ function UserDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-background border border-border/60 rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full sm:max-w-lg bg-background border border-border/60 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors">
           <X className="w-4 h-4" />
         </button>
@@ -80,7 +147,7 @@ function UserDetailModal({
           <div>
             <h2 className="text-xl font-bold">{user.name}</h2>
             <p className="text-sm text-muted-foreground">{user.email}</p>
-            <p className="text-xs text-muted-foreground font-mono mt-0.5">{user.id}</p>
+            <p className="text-xs text-muted-foreground font-mono mt-0.5 break-all">{user.id}</p>
           </div>
         </div>
 
@@ -161,32 +228,59 @@ function UserDetailModal({
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+// ── Pagination ────────────────────────────────────────────────────────────────
+function Pagination({
+  meta,
+  page,
+  isLoading,
+  onPrev,
+  onNext,
+}: {
+  meta: { page: number; totalPages: number; total: number };
+  page: number;
+  isLoading: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="p-4 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="text-sm text-muted-foreground order-2 sm:order-1">
+        Page <span className="font-semibold">{meta.page}</span> of {meta.totalPages}
+        {' '}· {meta.total} users
+      </div>
+      <div className="flex gap-2 order-1 sm:order-2">
+        <Button variant="outline" size="sm" onClick={onPrev} disabled={page === 1 || isLoading} className="gap-1">
+          <ChevronLeft className="w-4 h-4" /> Previous
+        </Button>
+        <Button variant="outline" size="sm" onClick={onNext} disabled={page === meta.totalPages || isLoading} className="gap-1">
+          Next <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdminUsersPage() {
   const [users,     setUsers]     = useState<AdminUser[]>([]);
   const [meta,      setMeta]      = useState<PaginatedResponse<AdminUser>['meta'] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [page,      setPage]      = useState(1);
 
-  // Filters
   const [search,     setSearch]     = useState('');
   const [status,     setStatus]     = useState<StatusFilter>('');
   const [subscribed, setSubscribed] = useState<SubscribedFilter>('');
-
-  // Selected user for modal
-  const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [selected,   setSelected]   = useState<AdminUser | null>(null);
 
   const fetchUsers = useCallback(async (p: number) => {
     setIsLoading(true);
     try {
       const res = await adminAPI.getUsers({
-        page: p,
-        limit: 10,
+        page: p, limit: 10,
         ...(search     ? { search }     : {}),
         ...(status     ? { status }     : {}),
         ...(subscribed ? { subscribed: subscribed === 'true' } : {}),
       });
-      // Handle both {data:{data:[],meta:{}}} and {data:[]} shapes
       const payload = res.data?.data;
       if (Array.isArray(payload)) {
         setUsers(payload);
@@ -205,10 +299,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => { fetchUsers(page); }, [page, fetchUsers]);
 
-  // Reset to page 1 on filter change
   const applyFilters = () => { setPage(1); fetchUsers(1); };
 
-  // ── Mutation helpers ──────────────────────────────────────────────────────────
   const handleStatusChange = async (userId: string, newStatus: string) => {
     await adminAPI.updateUserStatus(userId, newStatus);
     setUsers(u => u.map(x => x.id === userId ? { ...x, status: newStatus } : x));
@@ -233,11 +325,12 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* ── Header ── */}
       <div className="flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
             User Management
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -254,12 +347,12 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-lg">
         <CardContent className="p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px] relative">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            {/* Search — full width on mobile */}
+            <div className="w-full sm:flex-1 sm:min-w-[200px] relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 id="user-search"
@@ -272,55 +365,57 @@ export default function AdminUsersPage() {
               />
             </div>
 
-            {/* Status */}
-            <div className="relative">
-              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <select
-                id="user-status-filter"
-                value={status}
-                onChange={e => setStatus(e.target.value as StatusFilter)}
-                className="pl-8 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-              >
-                <option value="">All Statuses</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="SUSPENDED">Suspended</option>
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            </div>
+            <div className="flex flex-wrap gap-3">
+              {/* Status filter */}
+              <div className="relative flex-1 sm:flex-none">
+                <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <select
+                  id="user-status-filter"
+                  value={status}
+                  onChange={e => setStatus(e.target.value as StatusFilter)}
+                  className="w-full pl-8 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="SUSPENDED">Suspended</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
 
-            {/* Subscribed */}
-            <div className="relative">
-              <select
-                id="user-subscription-filter"
-                value={subscribed}
-                onChange={e => setSubscribed(e.target.value as SubscribedFilter)}
-                className="px-3 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
-              >
-                <option value="">All Plans</option>
-                <option value="true">Subscribed</option>
-                <option value="false">Free</option>
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            </div>
+              {/* Plan filter */}
+              <div className="relative flex-1 sm:flex-none">
+                <select
+                  id="user-subscription-filter"
+                  value={subscribed}
+                  onChange={e => setSubscribed(e.target.value as SubscribedFilter)}
+                  className="w-full px-3 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="">All Plans</option>
+                  <option value="true">Subscribed</option>
+                  <option value="false">Free</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
 
-            {/* Actions */}
-            <Button size="sm" onClick={applyFilters} className="bg-violet-600 hover:bg-violet-700 text-white h-9">
-              <Search className="w-3.5 h-3.5 mr-1.5" /> Search
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setSearch(''); setStatus(''); setSubscribed(''); setPage(1); fetchUsers(1); }}
-              className="h-9"
-            >
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
-            </Button>
+              {/* Buttons */}
+              <Button size="sm" onClick={applyFilters} className="bg-violet-600 hover:bg-violet-700 text-white h-9 flex-1 sm:flex-none">
+                <Search className="w-3.5 h-3.5 mr-1.5" /> Search
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setSearch(''); setStatus(''); setSubscribed(''); setPage(1); fetchUsers(1); }}
+                className="h-9 flex-1 sm:flex-none"
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* ── Table / Card List ── */}
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-xl overflow-hidden">
         <CardContent className="p-0">
           {isLoading && (!users || users.length === 0) ? (
@@ -333,87 +428,89 @@ export default function AdminUsersPage() {
               <p className="font-medium">No users match your criteria.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold">
-                  <tr>
-                    <th className="px-6 py-4">User</th>
-                    <th className="px-6 py-4">Role</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Plan</th>
-                    <th className="px-6 py-4">Joined</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-foreground">{user.name}</div>
-                            <div className="text-xs text-muted-foreground">{user.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4"><RoleBadge role={user.role} /></td>
-                      <td className="px-6 py-4"><StatusBadge status={user.status} /></td>
-                      <td className="px-6 py-4 font-medium text-xs">{user.subscriptionPlan}</td>
-                      <td className="px-6 py-4 text-muted-foreground text-xs">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            asChild
-                          >
-                            <Link href={`/admin/users/${user.id}`}>
-                              <Eye className="w-3.5 h-3.5 mr-1" /> View/Manage
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-8 text-xs ${
-                              user.status === 'ACTIVE'
-                                ? 'border-red-400/60 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
-                                : 'border-green-400/60 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30'
-                            }`}
-                            onClick={() => handleStatusChange(user.id, user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
-                          >
-                            {user.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-                          </Button>
-                        </div>
-                      </td>
+            <>
+              {/* ── Mobile card list (xs only) ── */}
+              <div className="sm:hidden divide-y divide-border/50">
+                {users.map(user => (
+                  <MobileUserCard
+                    key={user.id}
+                    user={user}
+                    onStatusChange={handleStatusChange}
+                  />
+                ))}
+              </div>
+
+              {/* ── Desktop table (sm+) ── */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold">
+                    <tr>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Role</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Plan</th>
+                      <th className="px-6 py-4">Joined</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {users.map((user) => (
+                      <tr key={user.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                              {user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-foreground">{user.name}</div>
+                              <div className="text-xs text-muted-foreground">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4"><RoleBadge role={user.role} /></td>
+                        <td className="px-6 py-4"><StatusBadge status={user.status} /></td>
+                        <td className="px-6 py-4 font-medium text-xs">{user.subscriptionPlan}</td>
+                        <td className="px-6 py-4 text-muted-foreground text-xs">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+                              <Link href={`/admin/users/${user.id}`}>
+                                <Eye className="w-3.5 h-3.5 mr-1" /> View/Manage
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`h-8 text-xs ${
+                                user.status === 'ACTIVE'
+                                  ? 'border-red-400/60 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
+                                  : 'border-green-400/60 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30'
+                              }`}
+                              onClick={() => handleStatusChange(user.id, user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE')}
+                            >
+                              {user.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}
           {meta && meta.totalPages > 1 && (
-            <div className="p-4 border-t border-border/50 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Page <span className="font-semibold">{meta.page}</span> of {meta.totalPages}
-                {' '}· {meta.total} users
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
-                  Previous
-                </Button>
-                <Button variant="outline" onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} disabled={page === meta.totalPages || isLoading}>
-                  Next
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              meta={meta}
+              page={page}
+              isLoading={isLoading}
+              onPrev={() => setPage(p => Math.max(1, p - 1))}
+              onNext={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+            />
           )}
         </CardContent>
       </Card>

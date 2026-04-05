@@ -6,7 +6,8 @@ import { adminAPI, PaymentQueryParams } from '@/services/admin.services';
 import { AdminPayment } from '@/types/admin.types';
 import {
   CreditCard, Banknote, History, Search, Filter, ChevronDown,
-  RefreshCw, X, Eye, AlertCircle,
+  RefreshCw, X, Eye, AlertCircle, CalendarDays,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -24,6 +25,74 @@ function PaymentStatusBadge({ status }: { status: string }) {
     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${colors[status] ?? 'bg-slate-100 text-slate-600'}`}>
       {status}
     </span>
+  );
+}
+
+// ── Mobile Payment Card ───────────────────────────────────────────────────────
+function MobilePaymentCard({
+  payment,
+  onRefund,
+  onSelect,
+}: {
+  payment: AdminPayment;
+  onRefund: (id: string) => Promise<void>;
+  onSelect: (p: AdminPayment) => void;
+}) {
+  return (
+    <div className="p-4 border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
+      {/* Top row: transaction id + status */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <CreditCard className="w-4 h-4 text-green-500 flex-shrink-0" />
+          <span className="font-mono text-xs text-muted-foreground truncate max-w-[160px]">
+            {payment.transactionId || payment.stripeSessionId || payment.id.substring(0, 16) + '…'}
+          </span>
+        </div>
+        <PaymentStatusBadge status={payment.status} />
+      </div>
+
+      {/* Amount + user */}
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-lg font-bold text-green-600">
+          ${(payment.amount || 0).toFixed(2)}{' '}
+          <span className="text-xs font-normal text-muted-foreground">{payment.currency || 'USD'}</span>
+        </span>
+        {payment.user && (
+          <span className="text-xs text-muted-foreground">{payment.user.name}</span>
+        )}
+      </div>
+
+      {/* Meta */}
+      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+        <span>{payment.subscriptionPlan || 'Custom'}</span>
+        <span className="flex items-center gap-1">
+          <CalendarDays className="w-3 h-3" />
+          {new Date(payment.createdAt).toLocaleDateString()}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-3 flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onSelect(payment)}>
+          <Eye className="w-3.5 h-3.5 mr-1" /> Details
+        </Button>
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" asChild>
+          <Link href={`/admin/payments/${payment.id}`}>
+            View
+          </Link>
+        </Button>
+        {(payment.status === 'SUCCEEDED' || payment.status === 'COMPLETED') && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-8 text-xs border-orange-400/60 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+            onClick={() => onRefund(payment.id)}
+          >
+            Refund
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -54,13 +123,12 @@ function PaymentDetailModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-background border border-border/60 rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full sm:max-w-lg bg-background border border-border/60 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors">
           <X className="w-4 h-4" />
         </button>
 
-        {/* Header */}
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
             <CreditCard className="w-6 h-6 text-white" />
@@ -73,17 +141,15 @@ function PaymentDetailModal({
           </div>
         </div>
 
-        {/* Info grid */}
         <div className="grid grid-cols-2 gap-3">
-          {field('Status',       <PaymentStatusBadge status={payment.status} />)}
-          {field('Amount',       <span className="text-green-600 font-bold">${(payment.amount || 0).toFixed(2)} {payment.currency || 'USD'}</span>)}
-          {field('Plan',         payment.subscriptionPlan || 'Custom')}
-          {field('User ID',      <span className="font-mono text-xs break-all">{payment.userId}</span>)}
-          {field('Session ID',   <span className="font-mono text-xs break-all truncate">{payment.stripeSessionId || '—'}</span>)}
-          {field('Date',         new Date(payment.createdAt).toLocaleString())}
+          {field('Status',     <PaymentStatusBadge status={payment.status} />)}
+          {field('Amount',     <span className="text-green-600 font-bold">${(payment.amount || 0).toFixed(2)} {payment.currency || 'USD'}</span>)}
+          {field('Plan',       payment.subscriptionPlan || 'Custom')}
+          {field('User ID',    <span className="font-mono text-xs break-all">{payment.userId}</span>)}
+          {field('Session ID', <span className="font-mono text-xs break-all truncate">{payment.stripeSessionId || '—'}</span>)}
+          {field('Date',       new Date(payment.createdAt).toLocaleString())}
         </div>
 
-        {/* Action */}
         {(payment.status === 'SUCCEEDED' || payment.status === 'COMPLETED') && (
           <div className="pt-2 border-t border-border/40">
             <Button
@@ -103,6 +169,38 @@ function PaymentDetailModal({
   );
 }
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+function Pagination({
+  meta,
+  page,
+  isLoading,
+  onPrev,
+  onNext,
+}: {
+  meta: { page: number; totalPages: number; total: number };
+  page: number;
+  isLoading: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="p-4 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="text-sm text-muted-foreground order-2 sm:order-1">
+        Page <span className="font-semibold">{meta.page}</span> of {meta.totalPages}
+        {' '}· {meta.total} transactions
+      </div>
+      <div className="flex gap-2 order-1 sm:order-2">
+        <Button variant="outline" size="sm" onClick={onPrev} disabled={page === 1 || isLoading} className="gap-1">
+          <ChevronLeft className="w-4 h-4" /> Previous
+        </Button>
+        <Button variant="outline" size="sm" onClick={onNext} disabled={page === meta.totalPages || isLoading} className="gap-1">
+          Next <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdminPaymentsPage() {
   const [payments,  setPayments]  = useState<AdminPayment[]>([]);
@@ -111,7 +209,6 @@ export default function AdminPaymentsPage() {
   const [page,      setPage]      = useState(1);
   const [selected,  setSelected]  = useState<AdminPayment | null>(null);
 
-  // Filter state
   const [statusFilter, setStatusFilter] = useState('');
   const [userIdFilter, setUserIdFilter] = useState('');
   const [dateFrom,     setDateFrom]     = useState('');
@@ -156,12 +253,13 @@ export default function AdminPaymentsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* ── Header ── */}
       <div className="flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
-            Revenue & Payments
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
+            Revenue &amp; Payments
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Monitor, filter, and manage all subscription transactions.
@@ -177,18 +275,18 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-lg">
         <CardContent className="p-4 space-y-3">
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* Status */}
-            <div className="relative">
+          {/* Row 1: Status + Sort + User ID */}
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            <div className="relative flex-1 sm:flex-none">
               <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <select
                 id="payment-status-filter"
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="pl-8 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full pl-8 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">All Statuses</option>
                 <option value="SUCCEEDED">Succeeded</option>
@@ -200,13 +298,12 @@ export default function AdminPaymentsPage() {
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             </div>
 
-            {/* Sort */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <select
                 id="payment-sort"
                 value={sort}
                 onChange={e => setSort(e.target.value)}
-                className="px-3 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="createdAt:desc">Newest first</option>
                 <option value="createdAt:asc">Oldest first</option>
@@ -216,8 +313,7 @@ export default function AdminPaymentsPage() {
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             </div>
 
-            {/* User ID */}
-            <div className="flex-1 min-w-[180px] relative">
+            <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 id="payment-user-id"
@@ -229,38 +325,40 @@ export default function AdminPaymentsPage() {
                 className="w-full pl-9 pr-3 py-2 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
+          </div>
 
-            {/* Date range */}
-            <div className="flex items-center gap-2">
+          {/* Row 2: Date range + buttons */}
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-end">
+            <div className="flex flex-col sm:flex-row gap-2 flex-1">
               <input
                 id="payment-date-from"
                 type="date"
                 value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)}
-                className="py-2 px-3 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="flex-1 py-2 px-3 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
-              <span className="text-muted-foreground text-sm">→</span>
+              <span className="hidden sm:flex items-center text-muted-foreground text-sm px-1">→</span>
               <input
                 id="payment-date-to"
                 type="date"
                 value={dateTo}
                 onChange={e => setDateTo(e.target.value)}
-                className="py-2 px-3 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="flex-1 py-2 px-3 text-sm bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
-
-            {/* Buttons */}
-            <Button size="sm" onClick={applyFilters} className="bg-green-600 hover:bg-green-700 text-white h-9">
-              <Search className="w-3.5 h-3.5 mr-1.5" /> Filter
-            </Button>
-            <Button size="sm" variant="outline" onClick={resetFilters} className="h-9">
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={applyFilters} className="bg-green-600 hover:bg-green-700 text-white h-9 flex-1 sm:flex-none">
+                <Search className="w-3.5 h-3.5 mr-1.5" /> Filter
+              </Button>
+              <Button size="sm" variant="outline" onClick={resetFilters} className="h-9 flex-1 sm:flex-none">
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* ── Table / Card List ── */}
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-xl overflow-hidden">
         <CardContent className="p-0">
           {isLoading && (!payments || payments.length === 0) ? (
@@ -273,102 +371,103 @@ export default function AdminPaymentsPage() {
               <p className="font-medium">No transactions match your criteria.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold">
-                  <tr>
-                    <th className="px-6 py-4">Transaction</th>
-                    <th className="px-6 py-4">User</th>
-                    <th className="px-6 py-4">Amount</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Plan</th>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {payments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          <span className="font-mono text-xs max-w-[130px] truncate" title={payment.transactionId || payment.stripeSessionId}>
-                            {payment.transactionId || payment.stripeSessionId || `${payment.id.substring(0, 12)}…`}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {payment.user ? (
-                          <div>
-                            <div className="font-medium">{payment.user.name}</div>
-                            <div className="text-xs text-muted-foreground">{payment.user.email}</div>
-                          </div>
-                        ) : (
-                          <span className="font-mono text-xs text-muted-foreground truncate max-w-[120px] block" title={payment.userId}>
-                            {payment.userId}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-green-600">
-                        ${(payment.amount || 0).toFixed(2)} {payment.currency || 'USD'}
-                      </td>
-                      <td className="px-6 py-4"><PaymentStatusBadge status={payment.status} /></td>
-                      <td className="px-6 py-4 text-xs font-medium">{payment.subscriptionPlan || 'Custom'}</td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">
-                        {new Date(payment.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs px-2"
-                            asChild
-                          >
-                            <Link href={`/admin/payments/${payment.id}`}>
-                              <Eye className="w-3.5 h-3.5 mr-1" /> View
-                            </Link>
-                          </Button>
-                          {(payment.status === 'SUCCEEDED' || payment.status === 'COMPLETED') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs px-2 border-orange-400/60 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30"
-                              onClick={() => handleRefund(payment.id)}
-                            >
-                              Refund
-                            </Button>
-                          )}
-                        </div>
-                      </td>
+            <>
+              {/* ── Mobile card list (xs only) ── */}
+              <div className="sm:hidden">
+                {payments.map(payment => (
+                  <MobilePaymentCard
+                    key={payment.id}
+                    payment={payment}
+                    onRefund={handleRefund}
+                    onSelect={setSelected}
+                  />
+                ))}
+              </div>
+
+              {/* ── Desktop table (sm+) ── */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold">
+                    <tr>
+                      <th className="px-6 py-4">Transaction</th>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Plan</th>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {payments.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            <span className="font-mono text-xs max-w-[130px] truncate" title={payment.transactionId || payment.stripeSessionId}>
+                              {payment.transactionId || payment.stripeSessionId || `${payment.id.substring(0, 12)}…`}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {payment.user ? (
+                            <div>
+                              <div className="font-medium">{payment.user.name}</div>
+                              <div className="text-xs text-muted-foreground">{payment.user.email}</div>
+                            </div>
+                          ) : (
+                            <span className="font-mono text-xs text-muted-foreground truncate max-w-[120px] block" title={payment.userId}>
+                              {payment.userId}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-bold text-green-600">
+                          ${(payment.amount || 0).toFixed(2)} {payment.currency || 'USD'}
+                        </td>
+                        <td className="px-6 py-4"><PaymentStatusBadge status={payment.status} /></td>
+                        <td className="px-6 py-4 text-xs font-medium">{payment.subscriptionPlan || 'Custom'}</td>
+                        <td className="px-6 py-4 text-xs text-muted-foreground">
+                          {new Date(payment.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className="h-7 text-xs px-2" asChild>
+                              <Link href={`/admin/payments/${payment.id}`}>
+                                <Eye className="w-3.5 h-3.5 mr-1" /> View
+                              </Link>
+                            </Button>
+                            {(payment.status === 'SUCCEEDED' || payment.status === 'COMPLETED') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs px-2 border-orange-400/60 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                                onClick={() => handleRefund(payment.id)}
+                              >
+                                Refund
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
-          {/* Pagination */}
           {meta && meta.totalPages > 1 && (
-            <div className="p-4 border-t border-border/50 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Page <span className="font-semibold">{meta.page}</span> of {meta.totalPages}
-                {' '}· {meta.total} transactions
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
-                  Previous
-                </Button>
-                <Button variant="outline" onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} disabled={page === meta.totalPages || isLoading}>
-                  Next
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              meta={meta}
+              page={page}
+              isLoading={isLoading}
+              onPrev={() => setPage(p => Math.max(1, p - 1))}
+              onNext={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+            />
           )}
         </CardContent>
       </Card>
 
-      {/* Detail Modal */}
       {selected && (
         <PaymentDetailModal
           payment={selected}

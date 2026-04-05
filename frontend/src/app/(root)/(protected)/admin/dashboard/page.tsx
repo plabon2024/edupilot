@@ -17,14 +17,14 @@ function StatCard({
 }: { title: string; value: string | number; icon: React.ReactNode; trend?: string }) {
   return (
     <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-xl transition-all hover:scale-[1.02] hover:shadow-violet-500/10">
-      <CardContent className="p-6">
+      <CardContent className="p-5 sm:p-6">
         <div className="flex justify-between items-start">
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">{title}</p>
-            <p className="text-3xl font-extrabold">{value}</p>
+            <p className="text-2xl sm:text-3xl font-extrabold tabular-nums">{value}</p>
             {trend && <p className="text-xs text-muted-foreground">{trend}</p>}
           </div>
-          <div className="p-3 bg-muted/50 rounded-xl">{icon}</div>
+          <div className="p-2.5 sm:p-3 bg-muted/50 rounded-xl flex-shrink-0">{icon}</div>
         </div>
       </CardContent>
     </Card>
@@ -99,18 +99,18 @@ export default function AdminDashboardPage() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
               Admin Dashboard
             </h1>
           </div>
-          <p className="text-muted-foreground text-sm ml-[52px]">
-            Monitor your platform's overall performance and user base.
+          <p className="text-muted-foreground text-sm ml-[48px] sm:ml-[52px]">
+            Monitor your platform&apos;s overall performance and user base.
           </p>
         </div>
-        <div className="text-xs text-muted-foreground bg-muted/40 border border-border/50 px-3 py-2 rounded-lg flex items-center gap-1.5">
+        <div className="text-xs text-muted-foreground bg-muted/40 border border-border/50 px-3 py-2 rounded-lg flex items-center gap-1.5 flex-shrink-0 self-start">
           <Activity className="w-3.5 h-3.5 text-green-500" />
           Live data
         </div>

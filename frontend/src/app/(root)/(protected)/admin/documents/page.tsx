@@ -7,11 +7,12 @@ import { AdminDocument } from '@/types/admin.types';
 import {
   FileText, Trash2, FolderOpen, Search, Filter, ChevronDown,
   RefreshCw, X, Eye, HardDrive, Calendar, User,
+  ChevronLeft, ChevronRight, CalendarDays,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function DocStatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     COMPLETED:  'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
@@ -28,10 +29,76 @@ function DocStatusBadge({ status }: { status: string }) {
 }
 
 function formatBytes(bytes?: number) {
-  if (!bytes) return 'N/A';
-  if (bytes < 1024)       return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (!bytes)            return 'N/A';
+  if (bytes < 1024)      return `${bytes} B`;
+  if (bytes < 1024*1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+// ── Mobile Document Card ──────────────────────────────────────────────────────
+function MobileDocumentCard({
+  doc,
+  onDelete,
+  onSelect,
+}: {
+  doc: AdminDocument;
+  onDelete: (id: string) => Promise<void>;
+  onSelect: (d: AdminDocument) => void;
+}) {
+  return (
+    <div className="p-4 border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
+      {/* Top row: icon + title + status */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText className="w-4 h-4 text-violet-500 flex-shrink-0" />
+          <span className="font-semibold text-sm text-foreground truncate max-w-[160px]">
+            {doc.title || doc.fileName || 'Untitled'}
+          </span>
+        </div>
+        <DocStatusBadge status={doc.status} />
+      </div>
+
+      {/* Owner */}
+      {doc.user && (
+        <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+          <User className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{doc.user.name}</span>
+          <span className="text-border">·</span>
+          <span className="truncate">{doc.user.email}</span>
+        </div>
+      )}
+
+      {/* Meta */}
+      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <HardDrive className="w-3 h-3" />{formatBytes(doc.fileSize)}
+        </span>
+        <span>{doc.fileType || '—'}</span>
+        <span className="flex items-center gap-1">
+          <CalendarDays className="w-3 h-3" />{new Date(doc.createdAt).toLocaleDateString()}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-3 flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onSelect(doc)}>
+          <Eye className="w-3.5 h-3.5 mr-1" /> Details
+        </Button>
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" asChild>
+          <Link href={`/admin/documents/${doc.id}`}>View</Link>
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          className="h-8 w-8 p-0 flex-shrink-0"
+          title="Delete"
+          onClick={() => { if (window.confirm('Delete this document?')) onDelete(doc.id); }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
@@ -56,23 +123,22 @@ function DocumentDetailModal({
   const field = (icon: React.ReactNode, label: string, value: React.ReactNode) => (
     <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
       <div className="mt-0.5 text-muted-foreground">{icon}</div>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5 min-w-0">
         <span className="text-xs text-muted-foreground uppercase font-semibold tracking-wide">{label}</span>
-        <span className="text-sm font-medium">{value}</span>
+        <span className="text-sm font-medium break-words">{value}</span>
       </div>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-background border border-border/60 rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full sm:max-w-lg bg-background border border-border/60 rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors">
           <X className="w-4 h-4" />
         </button>
 
-        {/* Header */}
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
             <FileText className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1 min-w-0">
@@ -81,13 +147,11 @@ function DocumentDetailModal({
           </div>
         </div>
 
-        {/* Status */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Status:</span>
           <DocStatusBadge status={doc.status} />
         </div>
 
-        {/* Info */}
         <div className="space-y-2">
           {field(<User className="w-4 h-4" />, 'Owner ID', <span className="font-mono text-xs break-all">{doc.userId}</span>)}
           {field(<HardDrive className="w-4 h-4" />, 'File Size', formatBytes(doc.fileSize))}
@@ -96,7 +160,6 @@ function DocumentDetailModal({
           {field(<Calendar className="w-4 h-4" />, 'Updated', new Date(doc.updatedAt).toLocaleString())}
         </div>
 
-        {/* Delete */}
         <div className="pt-2 border-t border-border/40">
           <Button
             variant="destructive"
@@ -114,6 +177,38 @@ function DocumentDetailModal({
   );
 }
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+function Pagination({
+  meta,
+  page,
+  isLoading,
+  onPrev,
+  onNext,
+}: {
+  meta: { page: number; totalPages: number; total: number };
+  page: number;
+  isLoading: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="p-4 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="text-sm text-muted-foreground order-2 sm:order-1">
+        Page <span className="font-semibold">{meta.page}</span> of {meta.totalPages}
+        {' '}· {meta.total} documents
+      </div>
+      <div className="flex gap-2 order-1 sm:order-2">
+        <Button variant="outline" size="sm" onClick={onPrev} disabled={page === 1 || isLoading} className="gap-1">
+          <ChevronLeft className="w-4 h-4" /> Previous
+        </Button>
+        <Button variant="outline" size="sm" onClick={onNext} disabled={page === meta.totalPages || isLoading} className="gap-1">
+          Next <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdminDocumentsPage() {
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
@@ -122,7 +217,6 @@ export default function AdminDocumentsPage() {
   const [page,      setPage]      = useState(1);
   const [selected,  setSelected]  = useState<AdminDocument | null>(null);
 
-  // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [userIdFilter, setUserIdFilter] = useState('');
 
@@ -149,9 +243,7 @@ export default function AdminDocumentsPage() {
   useEffect(() => { fetchDocuments(page); }, [page, fetchDocuments]);
 
   const applyFilters = () => { setPage(1); fetchDocuments(1); };
-  const resetFilters = () => {
-    setStatusFilter(''); setUserIdFilter(''); setPage(1); fetchDocuments(1);
-  };
+  const resetFilters = () => { setStatusFilter(''); setUserIdFilter(''); setPage(1); fetchDocuments(1); };
 
   const handleDelete = async (docId: string) => {
     await adminAPI.deleteDocument(docId);
@@ -159,11 +251,12 @@ export default function AdminDocumentsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* ── Header ── */}
       <div className="flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
             Document Center
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -180,18 +273,18 @@ export default function AdminDocumentsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-lg">
         <CardContent className="p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* Status */}
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            {/* Status filter */}
+            <div className="relative flex-1 sm:flex-none">
               <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <select
                 id="doc-status-filter"
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="pl-8 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full pl-8 pr-7 py-2 text-sm bg-muted/50 border border-border rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-violet-500"
               >
                 <option value="">All Statuses</option>
                 <option value="COMPLETED">Completed</option>
@@ -204,7 +297,7 @@ export default function AdminDocumentsPage() {
             </div>
 
             {/* User ID */}
-            <div className="flex-1 min-w-[200px] relative">
+            <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 id="doc-user-id"
@@ -217,17 +310,20 @@ export default function AdminDocumentsPage() {
               />
             </div>
 
-            <Button size="sm" onClick={applyFilters} className="bg-violet-600 hover:bg-violet-700 text-white h-9">
-              <Search className="w-3.5 h-3.5 mr-1.5" /> Filter
-            </Button>
-            <Button size="sm" variant="outline" onClick={resetFilters} className="h-9">
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
-            </Button>
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={applyFilters} className="bg-violet-600 hover:bg-violet-700 text-white h-9 flex-1 sm:flex-none">
+                <Search className="w-3.5 h-3.5 mr-1.5" /> Filter
+              </Button>
+              <Button size="sm" variant="outline" onClick={resetFilters} className="h-9 flex-1 sm:flex-none">
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reset
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* ── Table / Card List ── */}
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-xl overflow-hidden">
         <CardContent className="p-0">
           {isLoading && (!documents || documents.length === 0) ? (
@@ -240,101 +336,100 @@ export default function AdminDocumentsPage() {
               <p className="font-medium">No documents match your criteria.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold">
-                  <tr>
-                    <th className="px-6 py-4">Title</th>
-                    <th className="px-6 py-4">Owner</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Size</th>
-                    <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {documents.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-violet-500 flex-shrink-0" />
-                          <span className="font-semibold max-w-[180px] truncate" title={doc.title || doc.fileName}>
-                            {doc.title || doc.fileName || 'Untitled'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {doc.user ? (
-                          <div>
-                            <div className="font-medium text-xs">{doc.user.name}</div>
-                            <div className="text-xs text-muted-foreground">{doc.user.email}</div>
-                          </div>
-                        ) : (
-                          <span className="font-mono text-xs text-muted-foreground max-w-[110px] truncate block" title={doc.userId}>
-                            {doc.userId}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4"><DocStatusBadge status={doc.status} /></td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">{formatBytes(doc.fileSize)}</td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">{doc.fileType || '—'}</td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">
-                        {new Date(doc.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs px-2"
-                            asChild
-                          >
-                            <Link href={`/admin/documents/${doc.id}`}>
-                              <Eye className="w-3.5 h-3.5 mr-1" /> View
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            title="Delete Document"
-                            onClick={() => {
-                              if (window.confirm("Delete this document?")) handleDelete(doc.id);
-                            }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </td>
+            <>
+              {/* ── Mobile card list (xs only) ── */}
+              <div className="sm:hidden">
+                {documents.map(doc => (
+                  <MobileDocumentCard
+                    key={doc.id}
+                    doc={doc}
+                    onDelete={handleDelete}
+                    onSelect={setSelected}
+                  />
+                ))}
+              </div>
+
+              {/* ── Desktop table (sm+) ── */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold">
+                    <tr>
+                      <th className="px-6 py-4">Title</th>
+                      <th className="px-6 py-4">Owner</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Size</th>
+                      <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {documents.map((doc) => (
+                      <tr key={doc.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                            <span className="font-semibold max-w-[180px] truncate" title={doc.title || doc.fileName}>
+                              {doc.title || doc.fileName || 'Untitled'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {doc.user ? (
+                            <div>
+                              <div className="font-medium text-xs">{doc.user.name}</div>
+                              <div className="text-xs text-muted-foreground">{doc.user.email}</div>
+                            </div>
+                          ) : (
+                            <span className="font-mono text-xs text-muted-foreground max-w-[110px] truncate block" title={doc.userId}>
+                              {doc.userId}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4"><DocStatusBadge status={doc.status} /></td>
+                        <td className="px-6 py-4 text-xs text-muted-foreground">{formatBytes(doc.fileSize)}</td>
+                        <td className="px-6 py-4 text-xs text-muted-foreground">{doc.fileType || '—'}</td>
+                        <td className="px-6 py-4 text-xs text-muted-foreground">
+                          {new Date(doc.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className="h-7 text-xs px-2" asChild>
+                              <Link href={`/admin/documents/${doc.id}`}>
+                                <Eye className="w-3.5 h-3.5 mr-1" /> View
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="Delete Document"
+                              onClick={() => { if (window.confirm('Delete this document?')) handleDelete(doc.id); }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
-          {/* Pagination */}
           {meta && meta.totalPages > 1 && (
-            <div className="p-4 border-t border-border/50 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Page <span className="font-semibold">{meta.page}</span> of {meta.totalPages}
-                {' '}· {meta.total} documents
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
-                  Previous
-                </Button>
-                <Button variant="outline" onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} disabled={page === meta.totalPages || isLoading}>
-                  Next
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              meta={meta}
+              page={page}
+              isLoading={isLoading}
+              onPrev={() => setPage(p => Math.max(1, p - 1))}
+              onNext={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+            />
           )}
         </CardContent>
       </Card>
 
-      {/* Detail Modal */}
       {selected && (
         <DocumentDetailModal
           doc={selected}
