@@ -29,9 +29,6 @@ interface UseAuthReturn {
   register: (data: { name: string; email: string; password: string }) => Promise<void>;
   login: (data: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
-  verifyEmail: (email: string, otp: string) => Promise<void>;
-  forgetPassword: (email: string) => Promise<void>;
-  resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   googleLogin: (redirectPath?: string) => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
@@ -97,22 +94,21 @@ export const useAuth = (): UseAuthReturn => {
       try {
         setIsLoading(true);
         setError(null);
-        await authAPI.register(data);
+        const response = await authAPI.register(data);
 
-        // Clear any auth cookies and local tokens set by the backend auto-login behavior
-        await clearAuthCookies();
-        clearAuthTokens();
+        if (response.data?.accessToken && response.data?.refreshToken) {
+          setAuthTokens(response.data.accessToken, response.data.refreshToken);
+          setUserInfo(response.data.user);
+          setUser(response.data.user as User);
+          setIsAuthenticated(true);
 
-        // Do not set tokens or authenticate until email is verified
-        // Navigate to verify email
-        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+          // Navigate to dashboard
+          router.push('/dashboard');
+        }
       } catch (err: unknown) {
         const axErr = err as AxiosError<{ message: string }>;
         const errorMessage = axErr.response?.data?.message || axErr.message || 'Error occurred';
         setError(errorMessage);
-        if (errorMessage.includes('not verified')) {
-          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
-        }
         throw new Error(errorMessage);
       } finally {
         setIsLoading(false);
@@ -141,9 +137,6 @@ export const useAuth = (): UseAuthReturn => {
         const axErr = err as AxiosError<{ message: string }>;
         const errorMessage = axErr.response?.data?.message || axErr.message || 'Login failed';
         setError(errorMessage);
-        if (errorMessage.includes('not verified')) {
-          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
-        }
         throw new Error(errorMessage);
       } finally {
         setIsLoading(false);
@@ -168,60 +161,6 @@ export const useAuth = (): UseAuthReturn => {
       router.push('/login');
     }
   }, [router]);
-
-  const verifyEmail = useCallback(
-    async (email: string, otp: string) => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        await authAPI.verifyEmail({ email, otp });
-        router.push('/login');
-      } catch (err: unknown) {
-        const axErr = err as AxiosError<{ message: string }>;
-        const errorMessage = axErr.response?.data?.message || axErr.message || 'Email verification failed';
-        setError(errorMessage);
-        throw new Error(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [router]
-  );
-
-  const forgetPassword = useCallback(async (email: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await authAPI.forgetPassword({ email });
-      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
-    } catch (err: unknown) {
-      const axErr = err as AxiosError<{ message: string }>;
-      const errorMessage = axErr.response?.data?.message || axErr.message || 'Failed to send reset email';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
-
-  const resetPassword = useCallback(
-    async (email: string, otp: string, newPassword: string) => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        await authAPI.resetPassword({ email, otp, newPassword });
-        router.push('/login');
-      } catch (err: unknown) {
-        const axErr = err as AxiosError<{ message: string }>;
-        const errorMessage = axErr.response?.data?.message || axErr.message || 'Password reset failed';
-        setError(errorMessage);
-        throw new Error(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [router]
-  );
 
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
@@ -272,9 +211,6 @@ export const useAuth = (): UseAuthReturn => {
     register,
     login,
     logout,
-    verifyEmail,
-    forgetPassword,
-    resetPassword,
     changePassword,
     googleLogin,
     refreshAccessToken,

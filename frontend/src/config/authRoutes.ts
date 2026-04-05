@@ -14,9 +14,6 @@ export const authRoutes = {
   // Public auth routes
   login: "/login",
   register: "/register",
-  forgotPassword: "/forgot-password",
-  resetPassword: "/reset-password",
-  verifyEmail: "/verify-email",
   
   // OAuth routes
   googleSuccess: "/auth/google/success",

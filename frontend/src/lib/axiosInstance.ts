@@ -111,28 +111,6 @@ export const authAPI = {
     return response.data;
   },
 
-  // Verify Email
-  verifyEmail: async (data: { email: string; otp: string }): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<AuthResponse>('/auth/verify-email', data);
-    return response.data;
-  },
-
-  // Forget Password
-  forgetPassword: async (data: { email: string }): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<AuthResponse>('/auth/forget-password', data);
-    return response.data;
-  },
-
-  // Reset Password
-  resetPassword: async (data: {
-    email: string;
-    otp: string;
-    newPassword: string;
-  }): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<AuthResponse>('/auth/reset-password', data);
-    return response.data;
-  },
-
   // Change Password
   changePassword: async (data: {
     currentPassword: string;

@@ -1,11 +1,21 @@
 'use client';
 
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Calendar, CheckCircle, Clock, LogOut, Mail, Shield, User } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle,
+  Crown,
+  Key,
+  LogOut,
+  Mail,
+  Shield,
+  User,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function ProfilePage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
@@ -13,13 +23,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/login");
+      router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 
   const handleLogout = async () => {
     await logout();
-    router.push("/");
+    router.push('/');
   };
 
   if (isLoading) {
@@ -30,201 +40,167 @@ export default function ProfilePage() {
     );
   }
 
-  if (!isAuthenticated || !user) {
-    return null;
-  }
+  if (!isAuthenticated || !user) return null;
 
   const formatDate = (date: string | null | undefined) => {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 animate-pulse" />
-      </div>
-    );
-  }
+  const initials = user.name
+    ?.split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
 
-  if (!isAuthenticated || !user) {
-    return null;
-  }
+  const isAdmin = user.role === 'ADMIN';
+  const dashboardHref = isAdmin ? '/admin/dashboard' : '/dashboard';
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href={user.role === "ADMIN" ? "/admin/dashboard" : "/dashboard"}>
-            <Button variant="ghost" size="sm" className="mb-0">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">My Profile</h1>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+
+        {/* Back nav */}
+        <Link
+          href={dashboardHref}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          Back to Dashboard
+        </Link>
+
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight mb-6">My Profile</h1>
+
+        {/* Hero card — avatar + name */}
+        <div className="relative rounded-2xl border border-border bg-card overflow-hidden mb-4">
+          {/* Gradient band */}
+          <div className="h-20 sm:h-24 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600" />
+
+          <div className="px-4 sm:px-6 pb-6">
+            {/* Avatar */}
+            <div className="relative -mt-10 sm:-mt-12 mb-4 flex items-end gap-4">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-background bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-xl overflow-hidden flex-shrink-0">
+                {user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
+              {/* Badges alongside avatar bottom */}
+              <div className="pb-1 flex flex-wrap gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                  isAdmin
+                    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                    : 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                }`}>
+                  <Shield className="w-3 h-3" />
+                  {isAdmin ? 'Admin' : 'User'}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                  <CheckCircle className="w-3 h-3" />
+                  Verified
+                </span>
+                {user.status && (
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                    user.status === 'ACTIVE'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
+                  }`}>
+                    {user.status}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">{user.name}</h2>
+            <p className="text-muted-foreground text-sm mt-0.5">{user.email}</p>
+          </div>
         </div>
 
-        {/* Profile Card */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          {/* Avatar Section */}
-          <div className="flex items-center gap-6 mb-8 pb-8 border-b border-border">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white text-4xl font-semibold overflow-hidden flex-shrink-0">
-              {user.image ? (
-                <img
-                  src={user.image}
-                  alt={user.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                user.name?.charAt(0).toUpperCase() || 'U'
-              )}
-            </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-1">{user.name}</h2>
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className={`w-4 h-4 ${user.role === "ADMIN" ? "text-amber-600" : "text-blue-600"}`} />
-                <span className="text-sm font-semibold capitalize">
-                  {user.role === "ADMIN" ? "Administrator" : "User"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {user.emailVerified ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600 font-medium">Verified</span>
-                  </>
-                ) : (
-                  <>
-                    <Clock className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm text-amber-600 font-medium">Not Verified</span>
-                  </>
+        {/* Info grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {/* Email */}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <Mail className="w-3.5 h-3.5" /> Email
+            </p>
+            <p className="text-sm font-medium text-foreground break-all">{user.email}</p>
+          </div>
+
+          {/* Member since */}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <Calendar className="w-3.5 h-3.5" /> Member Since
+            </p>
+            <p className="text-sm font-medium text-foreground">{formatDate(user.createdAt)}</p>
+          </div>
+
+          {/* User ID */}
+          <div className="rounded-xl border border-border bg-card p-4 sm:col-span-2">
+            <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <User className="w-3.5 h-3.5" /> User ID
+            </p>
+            <p className="text-xs font-mono text-foreground break-all">{user.id}</p>
+          </div>
+        </div>
+
+        {/* Subscription card */}
+        {user.isSubscribed && (
+          <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/30 p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <Crown className="w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-violet-700 dark:text-violet-300 text-sm">Pro Scholar — Active</p>
+                {user.subscriptionEndsAt && (
+                  <p className="text-xs text-violet-600/80 dark:text-violet-400/80 mt-0.5">
+                    Renews {formatDate(user.subscriptionEndsAt)}
+                  </p>
                 )}
               </div>
             </div>
           </div>
+        )}
 
-          {/* Profile Details */}
-          <div className="space-y-6">
-            {/* Email */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-2">
-                <Mail className="w-4 h-4" />
-                Email Address
-              </label>
-              <p className="px-4 py-3 bg-muted rounded-lg text-foreground">{user.email}</p>
-            </div>
-
-            {/* User ID */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-2">
-                <User className="w-4 h-4" />
-                User ID
-              </label>
-              <p className="px-4 py-3 bg-muted rounded-lg text-foreground font-mono text-xs break-all">
-                {user.id}
-              </p>
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="text-sm font-semibold text-muted-foreground mb-2 block">Status</label>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    user.status === "ACTIVE"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {user.status || "ACTIVE"}
-                </span>
-              </div>
-            </div>
-
-            {/* Subscription Status */}
-            {user.isSubscribed && (
-              <div>
-                <label className="text-sm font-semibold text-muted-foreground mb-2 block">
-                  Subscription
-                </label>
-                <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900">
-                    ✓ You have an active subscription
-                  </p>
-                  {user.subscriptionEndsAt && (
-                    <p className="text-xs text-blue-700 mt-1">
-                      Expires: {formatDate(user.subscriptionEndsAt)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Account Created */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-2">
-                <Calendar className="w-4 h-4" />
-                Account Created
-              </label>
-              <p className="px-4 py-3 bg-muted rounded-lg text-foreground">
-                {formatDate(user.createdAt)}
-              </p>
-            </div>
-
-            {/* Email Verification Status */}
-            {!user.emailVerified && (
-              <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
-                <p className="text-sm font-medium mb-2">Email Not Verified</p>
-                <p className="text-xs mb-3">
-                  Please verify your email address to unlock all features.
-                </p>
-                <Link href="/verify-email">
-                  <Button size="sm" variant="outline" className="bg-white">
-                    Verify Email Now
-                  </Button>
-                </Link>
-              </div>
-            )}
-
-            {/* Password Change Prompt */}
-            {user.needPasswordChange && (
-              <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800">
-                <p className="text-sm font-medium mb-2">Change Password Required</p>
-                <p className="text-xs mb-3">
-                  For security reasons, you need to change your password.
-                </p>
-                <Link href="/change-password">
-                  <Button size="sm" variant="outline" className="bg-white">
-                    Change Password
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 mt-8 pt-6 border-t border-border">
-            <Link href="/change-password" className="flex-1">
-              <Button variant="outline" className="w-full">
-                Change Password
+        {/* Password change required banner */}
+        {user.needPasswordChange && (
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4 mb-4">
+            <p className="text-sm font-bold text-red-700 dark:text-red-400 mb-1">Password Change Required</p>
+            <p className="text-xs text-red-600/80 dark:text-red-400/80 mb-3">
+              For security reasons, please update your password before continuing.
+            </p>
+            <Link href="/change-password">
+              <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs h-8">
+                Change Password Now
               </Button>
             </Link>
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-              className="flex-1"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
           </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href="/change-password" className="flex-1">
+            <Button
+              variant="outline"
+              className="w-full h-11 rounded-xl font-semibold gap-2 hover:bg-muted/60 transition-all"
+            >
+              <Key className="w-4 h-4" />
+              Change Password
+            </Button>
+          </Link>
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            className="flex-1 h-11 rounded-xl font-semibold gap-2 transition-all hover:scale-[1.01]"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </Button>
         </div>
       </div>
     </div>
