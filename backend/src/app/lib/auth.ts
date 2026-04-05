@@ -3,9 +3,9 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { bearer, emailOTP } from "better-auth/plugins";
 import { Role, UserStatus } from "../../generated/prisma/enums";
 
+import envVars from "../config";
 import { sendEmail } from "../utils/email";
 import { prisma } from "./prisma";
-import envVars from "../config";
 // If your Prisma file is located elsewhere, you can change the path
 
 export const auth = betterAuth({
@@ -131,7 +131,7 @@ export const auth = betterAuth({
                     }
                 }
             },
-            expiresIn : 10 * 60, // 2 minutes in seconds
+            expiresIn : 2 * 60, // 2 minutes in seconds
             otpLength : 6,
         })
     ],
