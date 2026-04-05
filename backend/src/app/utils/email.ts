@@ -7,14 +7,21 @@ import { envVars } from "../config";
 import AppError from "../errors/AppError";
 
 
+const SMTP_PORT = Number(envVars.EMAIL_SENDER.SMTP_PORT) || 587;
+
 const transporter = nodemailer.createTransport({
     host : envVars.EMAIL_SENDER.SMTP_HOST,
-    secure: true,
+    port: SMTP_PORT,
+    // secure: true requires port 465 (SSL). Port 587 uses STARTTLS (secure: false)
+    secure: SMTP_PORT === 465,
     auth: {
         user: envVars.EMAIL_SENDER.SMTP_USER,
         pass: envVars.EMAIL_SENDER.SMTP_PASS
     },
-    port: Number(envVars.EMAIL_SENDER.SMTP_PORT)
+    tls: {
+        // Do not fail on invalid certificates (useful for some SMTP providers)
+        rejectUnauthorized: false,
+    }
 })
 
 interface SendEmailOptions {
@@ -33,7 +40,10 @@ export const sendEmail = async ({subject, templateData, templateName, to, attach
    
     
     try {
-        const templatePath = path.resolve(process.cwd(), `src/app/templates/${templateName}.ejs`);
+        // Resolve template path relative to this file's location.
+        // In dev (tsx): __dirname = src/app/utils  → ../templates
+        // In prod (dist): __dirname = dist/app/utils → ../templates (after copy)
+        const templatePath = path.resolve(__dirname, `../templates/${templateName}.ejs`);
 
         const html = await ejs.renderFile(templatePath, templateData);
 
