@@ -1,12 +1,12 @@
 model ChatHistory {
-  id         String    @id @default(cuid())
+  id         String        @id @default(cuid())
   userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   documentId String
-  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document   Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
   messages   ChatMessage[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([userId, documentId])
   @@map("chat_history")

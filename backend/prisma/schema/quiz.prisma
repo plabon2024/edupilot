@@ -1,17 +1,17 @@
 model Quiz {
-  id             String         @id @default(cuid())
+  id             String    @id @default(cuid())
   userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   documentId     String
-  document       Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document       Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   title          String
   totalQuestions Int
-  score          Int            @default(0)
+  score          Int       @default(0)
   completedAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  questions  QuizQuestion[]
+  questions   QuizQuestion[]
   userAnswers QuizUserAnswer[]
 
   @@index([userId, documentId])
@@ -19,16 +19,16 @@ model Quiz {
 }
 
 model QuizQuestion {
-  id            String         @id @default(cuid())
+  id            String     @id @default(cuid())
   quizId        String
-  quiz          Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quiz          Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
   question      String
   options       String[]
   correctAnswer String
-  explanation   String?        @default("")
-  difficulty    Difficulty     @default(MEDIUM)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  explanation   String?    @default("")
+  difficulty    Difficulty @default(MEDIUM)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   userAnswers QuizUserAnswer[]
 
@@ -37,14 +37,14 @@ model QuizQuestion {
 }
 
 model QuizUserAnswer {
-  id              String       @id @default(cuid())
-  quizId          String
-  quiz            Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  questionId      String
-  question        QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  selectedAnswer  String
-  isCorrect       Boolean
-  answeredAt      DateTime     @default(now())
+  id             String       @id @default(cuid())
+  quizId         String
+  quiz           Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedAnswer String
+  isCorrect      Boolean
+  answeredAt     DateTime     @default(now())
 
   @@index([quizId])
   @@map("quiz_user_answer")
