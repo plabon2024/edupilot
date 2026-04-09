@@ -163,7 +163,6 @@ const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
 };
 
 /* ── GET /api/v1/auth/google/success ────────────────────────── */
-/* ── GET /api/v1/auth/google/success ────────────────────────── */
 const googleLoginSuccess = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const redirectPath = (req.query.redirect as string) || '/dashboard';
@@ -188,11 +187,11 @@ const googleLoginSuccess = async (req: Request, res: Response, next: NextFunctio
 
     const isValidPath = redirectPath.startsWith('/') && !redirectPath.startsWith('//');
     const finalPath = isValidPath ? redirectPath : '/dashboard';
-    const finalUrl = `${envVars.FRONTEND_URL}${finalPath}`;
+    const hash = `#accessToken=${encodeURIComponent(result.accessToken)}&refreshToken=${encodeURIComponent(result.refreshToken)}`;
+    const finalUrl = `${envVars.FRONTEND_URL}/auth/google/success?redirect=${encodeURIComponent(finalPath)}${hash}`;
 
-    // RENDER THE EJS TEMPLATE INSTEAD OF REDIRECTING
-    res.render('googleRedirect', { url: finalUrl });
-    
+    res.redirect(finalUrl);
+
   } catch (error) { next(error); }
 };
 
@@ -210,6 +209,7 @@ export const AuthController = {
   getNewToken,
   changePassword,
   logoutUser,
+
   googleLogin,
   googleLoginSuccess,
   handleOAuthError,

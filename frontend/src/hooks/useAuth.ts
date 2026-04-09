@@ -3,7 +3,7 @@
 import { clearAuthTokens, clearUserInfo, getAuthTokens, getUserInfo, setAuthTokens, setUserInfo } from '@/lib/authUtils';
 import { authAPI } from '@/lib/axiosInstance';
 import { isTokenExpired } from '@/lib/tokenUtils';
-import { clearAuthCookies, getNewTokensWithRefreshToken } from '@/services/auth.services';
+import { clearAuthCookies } from '@/services/auth.services';
 import { AxiosError } from 'axios';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -44,11 +44,25 @@ export const useAuth = (): UseAuthReturn => {
 
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     try {
-      const tokens = getAuthTokens();
-      if (!tokens?.refreshToken) return false;
+      // Attempt to refresh tokens using cookie-based refresh flow.
+      try {
+        const refreshResponse = await authAPI.refreshToken();
+        if (refreshResponse.data?.accessToken) {
+          setAuthTokens(refreshResponse.data.accessToken, refreshResponse.data.refreshToken || '');
+        }
+      } catch (refreshError) {
+        console.warn('Cookie-based refresh failed, trying session check:', refreshError);
+      }
 
-      const success = await getNewTokensWithRefreshToken(tokens.refreshToken);
-      return success;
+      const meResponse = await authAPI.getMe();
+      if (meResponse.data?.user) {
+        setUserInfo(meResponse.data.user);
+        setUser(meResponse.data.user as User);
+        setIsAuthenticated(true);
+        return true;
+      }
+
+      return false;
     } catch (err) {
       console.error('Token refresh failed:', err);
       return false;
@@ -65,16 +79,11 @@ export const useAuth = (): UseAuthReturn => {
         if (tokens?.accessToken && !isTokenExpired(tokens.accessToken)) {
           setIsAuthenticated(true);
           setUser(storedUser);
-        } else if (tokens?.refreshToken) {
-          // Try to refresh token
+        } else {
           const success = await refreshAccessToken();
-          if (success) {
-            const newTokens = getAuthTokens();
-            if (newTokens?.accessToken) {
-              const newUser = getUserInfo();
-              setIsAuthenticated(true);
-              setUser(newUser);
-            }
+          if (!success) {
+            clearAuthTokens();
+            setIsAuthenticated(false);
           }
         }
       } catch (err) {
@@ -186,18 +195,18 @@ export const useAuth = (): UseAuthReturn => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await authAPI.googleLogin(redirectPath);
-        if (response.url) {
-          // Redirect to Google OAuth
-          window.location.href = response.url;
-        }
+        const params = redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : '';
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+        const url = `${baseUrl}/auth/login/google${params}`;
+        
+        // Navigate directly so the browser loads the returned HTML and executes the EJS
+        window.location.href = url;
       } catch (err: unknown) {
-        const axErr = err as AxiosError<{ message: string }>;
-        const errorMessage = axErr.response?.data?.message || axErr.message || 'Google login failed';
+        const errorMessage = err instanceof Error ? err.message : 'Google login failed';
         setError(errorMessage);
         throw new Error(errorMessage);
       } finally {
-        setIsLoading(false);
+        // Don't set isLoading(false) here because we are navigating away
       }
     },
     []

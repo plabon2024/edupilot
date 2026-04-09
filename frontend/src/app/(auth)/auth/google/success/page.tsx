@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
+import { setAuthTokens } from '@/lib/authUtils';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -15,13 +16,16 @@ function GoogleSuccessContent() {
   useEffect(() => {
     const handleGoogleSuccess = async () => {
       try {
-        // Get redirect path from params
         const redirectPath = searchParams.get('redirect') || '/dashboard';
-        
-        // Wait for token to be set in cookie by backend
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const hashParams = new URLSearchParams(window.location.hash.slice(1));
+        const accessToken = hashParams.get('accessToken');
+        const refreshToken = hashParams.get('refreshToken');
 
-        // Try to refresh access token from cookie
+        if (accessToken && refreshToken) {
+          setAuthTokens(accessToken, refreshToken);
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+
         const success = await refreshAccessToken();
 
         if (success) {

@@ -132,18 +132,7 @@ export const authAPI = {
     return response.data;
   },
 
-  // Google Login
-  googleLogin: async (redirectPath?: string): Promise<{ url: string }> => {
-    const params = redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : '';
-    const response = await axiosInstance.get<GoogleOAuthResponse>(
-      `/auth/login/google${params}`,
-      { maxRedirects: 0 }
-    );
-    if (response.data?.data?.url) {
-      return { url: response.data.data.url };
-    }
-    throw new Error('Failed to get Google OAuth URL');
-  },
+
 
   // Refresh Token
   refreshToken: async (): Promise<AuthResponse> => {

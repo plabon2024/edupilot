@@ -26,10 +26,12 @@ const getRefreshToken = (payload: JwtPayload) => {
 }
 
 
+const cookieSecure = envVars.NODE_ENV === 'production';
+
 const setAccessTokenCookie = (res: Response, token: string) => {
     CookieUtils.setCookie(res, 'accessToken', token, {
         httpOnly: true,
-        secure: true,
+        secure: cookieSecure,
         sameSite: "none",
         path: '/',
         //1 day
@@ -40,7 +42,7 @@ const setAccessTokenCookie = (res: Response, token: string) => {
 const setRefreshTokenCookie = (res: Response, token: string) => {
     CookieUtils.setCookie(res, 'refreshToken', token, {
         httpOnly: true,
-        secure: true,
+        secure: cookieSecure,
         sameSite: "none",
         path: '/',
         //7d
@@ -51,7 +53,7 @@ const setRefreshTokenCookie = (res: Response, token: string) => {
 const setBetterAuthSessionCookie = (res: Response, token: string) => {
     CookieUtils.setCookie(res, "better-auth.session_token", token, {
         httpOnly: true,
-        secure: true,
+        secure: cookieSecure,
         sameSite: "none",
         path: '/',
         //1 day

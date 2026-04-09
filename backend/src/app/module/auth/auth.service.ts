@@ -31,7 +31,9 @@ const registerUser = async (payload: IRegisterUserPayload) => {
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
+
     throw new AppError(status.BAD_REQUEST, 'User already exists');
+
   }
 
   const data = await auth.api.signUpEmail({ body: { name, email, password } });
@@ -40,12 +42,6 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     throw new AppError(status.BAD_REQUEST, 'Registration failed');
   }
 
-  // Set email as verified immediately
-  await prisma.user.update({
-    where: { id: data.user.id },
-    data: { emailVerified: true },
-  });
-
   const { accessToken, refreshToken } = buildTokens({
     userId: data.user.id,
     role: data.user.role,
@@ -53,15 +49,17 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     email: data.user.email,
     status: data.user.status,
     isDeleted: data.user.isDeleted,
-    emailVerified: true,
+    emailVerified: data.user.emailVerified,
   });
 
-  return { user: { ...data.user, emailVerified: true }, token: data.token, accessToken, refreshToken };
+  return { user: data.user, token: data.token, accessToken, refreshToken };
 };
 
 /* ── POST /api/v1/auth/login ────────────────────────────────── */
 const loginUser = async (payload: ILoginUserPayload) => {
   const { email, password } = payload;
+
+
 
   const data = await auth.api.signInEmail({ body: { email, password } });
 
@@ -183,6 +181,7 @@ const logoutUser = async (sessionToken: string) => {
     headers: new Headers({ Authorization: `Bearer ${sessionToken}` }),
   });
 };
+
 
 /* ── Google OAuth success callback ──────────────────────────── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
