@@ -3,37 +3,38 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
 } from '@/components/ui/sheet';
+import ThemeToggle from '@/components/ui/theme-toggle';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  BarChart3,
-  Brain,
-  ChevronDown,
-  CreditCard,
-  FileText,
-  LayoutDashboard,
-  Layers,
-  LogOut,
-  Menu,
-  ShieldCheck,
-  Sparkles,
-  User,
-  Users,
-  Zap,
+    BarChart3,
+    Brain,
+    ChevronDown,
+    CreditCard,
+    FileText,
+    Layers,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    ShieldCheck,
+    Sparkles,
+    User,
+    Users,
+    Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -197,6 +198,7 @@ export default function Navbar() {
 
           {/* ── Desktop Right ── */}
           <div className='hidden md:flex items-center gap-3'>
+            <ThemeToggle />
             {isLoading ? (
               <div className='w-8 h-8 rounded-full bg-muted animate-pulse' />
             ) : isAuthenticated ? (
@@ -326,6 +328,9 @@ export default function Navbar() {
 
               {/* Bottom auth section */}
               <div className='border-t border-border/50 px-5 py-5 space-y-3'>
+                <div className='flex justify-center'>
+                  <ThemeToggle className='w-full justify-center' />
+                </div>
                 {isLoading ? (
                   <div className='h-14 rounded-xl bg-muted animate-pulse' />
                 ) : isAuthenticated ? (

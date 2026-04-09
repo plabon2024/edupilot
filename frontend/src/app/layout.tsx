@@ -1,3 +1,4 @@
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import type { Metadata } from "next";
 import { Quicksand } from "next/font/google";
 import "./globals.css";
@@ -19,12 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} antialiased`}
-      >
-        <main className="min-h-screen">
-          {children}
-        </main>
+      <body className={`${geistSans.variable} antialiased`}>
+        <ThemeProvider>
+          <main className="min-h-screen">{children}</main>
+        </ThemeProvider>
       </body>
     </html>
   );
