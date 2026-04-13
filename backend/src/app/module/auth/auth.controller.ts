@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import status from 'http-status';
-import { envVars } from '../../config';
 import AppError from '../../errors/AppError';
 import { auth } from '../../lib/auth';
+import { envVars } from '../../config';
 import { CookieUtils } from '../../utils/cookie';
 import { tokenUtils } from '../../utils/token';
 import { AuthService } from './auth.service';
@@ -127,38 +127,28 @@ const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
     const encodedRedirectPath = encodeURIComponent(redirectPath);
     const callbackURL = `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success?redirect=${encodedRedirectPath}`;
 
-    // Convert Express headers to Web Headers
-    const reqHeaders = new Headers();
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (typeof value === 'string') {
-        reqHeaders.set(key, value);
-      } else if (Array.isArray(value)) {
-        value.forEach((v) => reqHeaders.append(key, v));
-      }
-    }
-
+    // Let better-auth generate the Google OAuth URL directly.
+    // asResponse:true returns the raw Response with the redirect + state cookie.
     const response = await auth.api.signInSocial({
-      body: {
-        provider: 'google',
-        callbackURL,
-      },
-      headers: reqHeaders,
+      body: { provider: 'google', callbackURL },
+      headers: new Headers(req.headers as Record<string, string>),
       asResponse: true,
     }) as unknown as globalThis.Response;
 
-    // Forward cookies (this contains the state cookie needed to prevent state_mismatch)
-    const setCookieHeaders = response.headers.getSetCookie();
-    if (setCookieHeaders && setCookieHeaders.length > 0) {
+    // ✅ Forward the state cookie set by better-auth to the browser
+    const setCookieHeaders = response.headers.getSetCookie?.() ?? [];
+    if (setCookieHeaders.length > 0) {
       res.setHeader('Set-Cookie', setCookieHeaders);
     }
 
-    const data = await response.json();
+    const body = await response.json();
 
-    if (data && data.url) {
-      res.redirect(data.url);
-    } else {
-      res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_init_failed`);
+    if (!body?.url) {
+      return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_init_failed`);
     }
+
+    // ✅ Redirect the browser to Google
+    return res.redirect(body.url);
   } catch (error) { next(error); }
 };
 
@@ -166,32 +156,50 @@ const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
 const googleLoginSuccess = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const redirectPath = (req.query.redirect as string) || '/dashboard';
-    const sessionToken = req.cookies['better-auth.session_token'] as string | undefined;
+
+    // better-auth sets this cookie after completing the OAuth callback.
+    // Also try the raw Cookie header as a fallback (cookie-parser can sometimes
+    // mangle keys that contain dots depending on configuration).
+    let sessionToken = req.cookies['better-auth.session_token'] as string | undefined;
 
     if (!sessionToken) {
+      // Fallback: parse the raw Cookie header manually
+      const rawCookie = req.headers.cookie ?? '';
+      const match = rawCookie.match(/better-auth\.session_token=([^;]+)/);
+      if (match) {
+        sessionToken = decodeURIComponent(match[1]);
+      }
+    }
+
+    if (!sessionToken) {
+      console.error('[googleLoginSuccess] No session token in cookies. Available cookies:', req.cookies);
+      console.error('[googleLoginSuccess] Raw cookie header:', req.headers.cookie);
       return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
     }
 
+    // Pass the full raw cookie string so better-auth can resolve the session
     const session = await auth.api.getSession({
-      headers: { Cookie: `better-auth.session_token=${sessionToken}` },
+      headers: new Headers({ Cookie: req.headers.cookie ?? `better-auth.session_token=${sessionToken}` }),
     });
 
     if (!session?.user) {
+      console.error('[googleLoginSuccess] Session or User not found for token:', sessionToken);
       return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_session_found`);
     }
 
-    const result = await AuthService.googleLoginSuccess(session);
+    console.log('[googleLoginSuccess] Successfully retrieved session for user:', session.user.email);
 
-    tokenUtils.setAccessTokenCookie(res, result.accessToken);
-    tokenUtils.setRefreshTokenCookie(res, result.refreshToken);
+    const result = await AuthService.googleLoginSuccess(session);
 
     const isValidPath = redirectPath.startsWith('/') && !redirectPath.startsWith('//');
     const finalPath = isValidPath ? redirectPath : '/dashboard';
-    const hash = `#accessToken=${encodeURIComponent(result.accessToken)}&refreshToken=${encodeURIComponent(result.refreshToken)}`;
-    const finalUrl = `${envVars.FRONTEND_URL}/auth/google/success?redirect=${encodeURIComponent(finalPath)}${hash}`;
 
-    res.redirect(finalUrl);
-
+    // ✅ Redirect to the frontend's /auth/google/success page with tokens in the URL
+    // hash fragment (hashes are never sent to any server — client-side only).
+    // The frontend page reads the hash, stores tokens in localStorage, then calls /me.
+    const hash = `accessToken=${encodeURIComponent(result.accessToken)}&refreshToken=${encodeURIComponent(result.refreshToken)}`;
+    const successUrl = `${envVars.FRONTEND_URL}/auth/google/success?redirect=${encodeURIComponent(finalPath)}#${hash}`;
+    res.render('googleRedirect', { url: successUrl });
   } catch (error) { next(error); }
 };
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { getDefaultDashboardRoute } from '@/config/authRoutes';
 import { clearAuthTokens, clearUserInfo, getAuthTokens, getUserInfo, setAuthTokens, setUserInfo } from '@/lib/authUtils';
 import { authAPI } from '@/lib/axiosInstance';
 import { isTokenExpired } from '@/lib/tokenUtils';
@@ -111,8 +112,8 @@ export const useAuth = (): UseAuthReturn => {
           setUser(response.data.user as User);
           setIsAuthenticated(true);
 
-          // Navigate to dashboard
-          router.push('/dashboard');
+          // Navigate to default route based on role
+          router.replace(getDefaultDashboardRoute(response.data?.user?.role));
         }
       } catch (err: unknown) {
         const axErr = err as AxiosError<{ message: string }>;
@@ -139,8 +140,8 @@ export const useAuth = (): UseAuthReturn => {
           setUser(response.data.user as User);
           setIsAuthenticated(true);
 
-          // Navigate to dashboard
-          router.push('/dashboard');
+          // Navigate to default route based on role
+          router.replace(getDefaultDashboardRoute(response.data?.user?.role));
         }
       } catch (err: unknown) {
         const axErr = err as AxiosError<{ message: string }>;

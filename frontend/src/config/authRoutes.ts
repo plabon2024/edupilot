@@ -21,18 +21,25 @@ export const authRoutes = {
 };
 
 export const commonProtectedRoutes: RouteConfig = {
-  exact: ["/my-profile", "/change-password"],
+  exact: ["/profile", "/change-password"],
   pattern: [],
 };
 
 export const adminProtectedRoutes: RouteConfig = {
-  pattern: [/^\/admin\/dashboard/],
+  pattern: [/^\/admin(?:\/|$)/],
   exact: [],
 };
 
 export const userProtectedRoutes: RouteConfig = {
-  pattern: [/^\/dashboard/],
-  exact: ["/payment/success"],
+  pattern: [
+    /^\/dashboard(?:\/|$)/,
+    /^\/flashcards(?:\/|$)/,
+    /^\/documents(?:\/|$)/,
+    /^\/quizzes(?:\/|$)/,
+    /^\/payment(?:\/|$)/,
+    /^\/progress(?:\/|$)/,
+  ],
+  exact: [],
 };
 
 export const publicRoutes = [

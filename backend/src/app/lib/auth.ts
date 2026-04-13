@@ -1,11 +1,14 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { bearer } from "better-auth/plugins";
+import { bearer, emailOTP } from "better-auth/plugins";
 import { Role, UserStatus } from "../../generated/prisma/enums";
 
-import envVars from "../config";
+// import { sendEmail } from "../utils/email";
 import { prisma } from "./prisma";
+import envVars from "../config";
 // If your Prisma file is located elsewhere, you can change the path
+
+const isHttps = process.env.NODE_ENV === "production" || envVars.BETTER_AUTH_URL.startsWith("https");
 
 export const auth = betterAuth({
     baseURL: envVars.BETTER_AUTH_URL,
@@ -16,26 +19,35 @@ export const auth = betterAuth({
 
     emailAndPassword: {
         enabled: true,
-        requireEmailVerification: false,
+        requireEmailVerification: true,
     },
 
-    socialProviders:{
-        google:{
+    socialProviders: {
+        google: {
             clientId: envVars.GOOGLE_CLIENT_ID,
             clientSecret: envVars.GOOGLE_CLIENT_SECRET,
             // callbackUrl: envVars.GOOGLE_CALLBACK_URL,
-            mapProfileToUser: ()=>{
+            mapProfileToUser: (profile) => {
                 return {
-                    role : Role.USER,
-                    status : UserStatus.ACTIVE,
-                    needPasswordChange : false,
-                    emailVerified : true,
-                    isDeleted : false,
-                    deletedAt : null,
+                    name: profile.name,
+                    email: profile.email,
+                    image: profile.picture,
+                    role: Role.USER,
+                    status: UserStatus.ACTIVE,
+                    needPasswordChange: false,
+                    emailVerified: true,
+                    isDeleted: false,
+                    deletedAt: null,
                 }
             }
         }
     },
+
+    // emailVerification:{
+    //     sendOnSignUp: true,
+    //     sendOnSignIn: true,
+    //     autoSignInAfterVerification: true,
+    // },
 
     user: {
         additionalFields: {
@@ -73,8 +85,61 @@ export const auth = betterAuth({
 
     plugins: [
         bearer(),
-    ],
+        // emailOTP({
+        //     overrideDefaultEmailVerification: true,
+        //     async sendVerificationOTP({email, otp, type}) {
+        //         if(type === "email-verification"){
+        //           const user = await prisma.user.findUnique({
+        //             where : {
+        //                 email,
+        //             }
+        //           })
 
+        //            if(!user){
+        //             console.error(`User with email ${email} not found. Cannot send verification OTP.`);
+        //             return;
+        //            }
+
+        //            if(user && user.role === Role.ADMIN){
+        //             console.log(`User with email ${email} is a super admin. Skipping sending verification OTP.`);
+        //             return;
+        //            }
+
+        //             if (user && !user.emailVerified){
+        //            await sendEmail({
+        //                 to : email,
+        //                 subject : "Verify your email",
+        //                 templateName : "otp",
+        //                 templateData :{
+        //                     name : user.name,
+        //                     otp,
+        //                 }
+        //             })
+        //           }
+        //         }else if(type === "forget-password"){
+        //             const user = await prisma.user.findUnique({
+        //                 where : {
+        //                     email,
+        //                 }
+        //             })
+
+        //             if(user){
+        //                 sendEmail({
+        //                     to : email,
+        //                     subject : "Password Reset OTP",
+        //                     templateName : "otp",
+        //                     templateData :{
+        //                         name : user.name,
+        //                         otp,
+        //                     }
+        //                 })
+        //             }
+        //         }
+        //     },
+        //     expiresIn : 10 * 60, // 2 minutes in seconds
+        //     otpLength : 6,
+        // })
+    ],
 
     session: {
         expiresIn: 60 * 60 * 60 * 24, // 1 day in seconds
@@ -85,28 +150,29 @@ export const auth = betterAuth({
         }
     },
 
-    redirectURLs:{
-        signIn : `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success`,
-    },
-
-    trustedOrigins: [process.env.BETTER_AUTH_URL || "http://localhost:5000", envVars.FRONTEND_URL],
+    // Allow the backend's own success route and the frontend as trusted redirect targets
+    trustedOrigins: [
+        envVars.BETTER_AUTH_URL,
+        envVars.FRONTEND_URL,
+    ],
 
     advanced: {
-        // disableCSRFCheck: true,
-        useSecureCookies : false,
-        cookies:{
-            state:{
-                attributes:{
-                    sameSite: "none",
-                    secure: true,
+        useSecureCookies: isHttps,
+        cookies: {
+            // sameSite: "none" REQUIRES secure: true (browsers drop it on plain HTTP).
+            // Use "lax" for HTTP (localhost) so the state cookie is actually saved.
+            state: {
+                attributes: {
+                    sameSite: isHttps ? "none" : "lax",
+                    secure: isHttps,
                     httpOnly: true,
                     path: "/",
                 }
             },
-            sessionToken:{
-                attributes:{
-                    sameSite: "none",
-                    secure: true,
+            sessionToken: {
+                attributes: {
+                    sameSite: isHttps ? "none" : "lax",
+                    secure: isHttps,
                     httpOnly: true,
                     path: "/",
                 }

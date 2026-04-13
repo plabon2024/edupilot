@@ -1,5 +1,6 @@
 'use client';
 
+import { getDefaultDashboardRoute } from '@/config/authRoutes';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -10,13 +11,13 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push('/dashboard');
+      router.replace(getDefaultDashboardRoute(user?.role));
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [user, isAuthenticated, isLoading, router]);
 
   return <>{children}</>;
 }

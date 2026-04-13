@@ -4,24 +4,62 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginInput, loginSchema } from '@/schemas/auth.schema';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Brain, Eye, EyeOff, Lock, Mail, Sparkles } from 'lucide-react';
+import {
+  Brain, Eye, EyeOff, Lock, Mail, Sparkles,
+  ShieldCheck, User, Zap,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+
+// ── Quick-login presets ─────────────────────────────────────
+const QUICK_LOGINS = [
+  {
+    id: 'quick-admin',
+    label: 'Admin',
+    email: 'admin@gmail.com',
+    password: '@123ADMINadmin',
+    icon: ShieldCheck,
+    colorClass: 'border-violet-500/40 bg-violet-500/5 hover:bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    dotClass: 'bg-violet-500',
+  },
+  {
+    id: 'quick-user',
+    label: 'Student',
+    email: 'user@gmai.com',
+    password: 'user@gmai.com',  // same as email per convention; adjust if needed
+    icon: User,
+    colorClass: 'border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+    dotClass: 'bg-indigo-500',
+  },
+] as const;
 
 export default function LoginPage() {
   const { login: authLogin, googleLogin, isLoading, error: authError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [activeQuick, setActiveQuick] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   });
+
+  const watchedEmail = watch('email');
+
+  // Fill email + password fields from preset
+  const handleQuickLogin = (preset: typeof QUICK_LOGINS[number]) => {
+    setValue('email', preset.email, { shouldValidate: true });
+    setValue('password', preset.password, { shouldValidate: true });
+    setActiveQuick(preset.id);
+    setErrorMessage(null);
+  };
 
   const onSubmit = async (data: LoginInput) => {
     try {
@@ -51,11 +89,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Left — decorative panel (hidden on mobile) */}
+      {/* ── Left decorative panel ── */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 items-center justify-center overflow-hidden">
-        {/* blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-white/10 rounded-full blur-3xl" />
         <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-indigo-400/20 rounded-full blur-3xl" />
+        {/* Subtle grid */}
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.1) 1px,transparent 1px)', backgroundSize: '40px 40px' }}
+        />
         <div className="relative z-10 text-center px-12">
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-2xl">
@@ -64,7 +105,7 @@ export default function LoginPage() {
           </div>
           <h2 className="text-4xl font-black text-white mb-4 tracking-tight">EduPilot AI</h2>
           <p className="text-white/80 text-lg font-medium max-w-xs mx-auto leading-relaxed">
-            Turn any document into flashcards, quizzes & a private AI tutor — instantly.
+            Turn any document into flashcards, quizzes &amp; a private AI tutor — instantly.
           </p>
           <div className="mt-10 grid grid-cols-3 gap-4 text-center">
             {[['10k+', 'Students'], ['5M+', 'Flashcards'], ['+41%', 'Grade Jump']].map(([val, label]) => (
@@ -74,10 +115,25 @@ export default function LoginPage() {
               </div>
             ))}
           </div>
+          {/* Feature bullets */}
+          <div className="mt-10 space-y-3 text-left max-w-xs mx-auto">
+            {[
+              { icon: Zap, text: 'AI flashcards in 12 seconds' },
+              { icon: Brain, text: 'Smart adaptive quizzes' },
+              { icon: Sparkles, text: 'Private AI tutor, always on' },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-3 text-white/80 text-sm">
+                <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-3.5 h-3.5 text-white" />
+                </div>
+                {text}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Right — form panel */}
+      {/* ── Right form panel ── */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-8 py-12">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
@@ -88,13 +144,16 @@ export default function LoginPage() {
             <span className="text-xl font-black tracking-tight">EduPilot AI</span>
           </div>
 
-          <div className="mb-8">
+          {/* Header */}
+          <div className="mb-7">
             <div className="inline-flex items-center gap-2 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 text-violet-600 dark:text-violet-400 rounded-full px-4 py-1.5 text-xs font-semibold mb-4">
               <Sparkles className="w-3 h-3" />
               Welcome back
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">Sign in to your account</h1>
-            <p className="mt-2 text-muted-foreground">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+              Sign in to your account
+            </h1>
+            <p className="mt-2 text-muted-foreground text-sm">
               Don&apos;t have an account?{' '}
               <Link href="/register" className="text-violet-600 hover:text-violet-500 font-semibold transition-colors">
                 Sign up free
@@ -102,17 +161,68 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* ── Quick Login Presets ── */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Quick Login (Demo)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {QUICK_LOGINS.map((preset) => {
+                const Icon = preset.icon;
+                const isActive = activeQuick === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    id={preset.id}
+                    type="button"
+                    onClick={() => handleQuickLogin(preset)}
+                    className={`
+                      relative flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 text-left
+                      transition-all duration-200 group cursor-pointer
+                      ${preset.colorClass}
+                      ${isActive ? 'ring-2 ring-offset-2 ring-violet-500/50 scale-[1.02]' : 'hover:scale-[1.01]'}
+                    `}
+                  >
+                    <div className={`w-8 h-8 rounded-lg border ${isActive ? preset.colorClass : 'bg-background/60 border-border'} flex items-center justify-center flex-shrink-0 transition-all duration-200`}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-foreground">{preset.label}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{preset.email}</p>
+                    </div>
+                    {isActive && (
+                      <div className="absolute top-2 right-2">
+                        <div className={`w-2 h-2 rounded-full ${preset.dotClass} animate-pulse`} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[10px] text-muted-foreground/60 text-center">
+              Click a preset to fill credentials, then sign in
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground font-medium">or sign in manually</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           {/* Error */}
           {(errorMessage || authError) && (
-            <div className="mb-5 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+            <div className="mb-5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
               {errorMessage || authError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-foreground mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-foreground mb-1.5">
                 Email Address
               </label>
               <div className="relative">
@@ -122,8 +232,10 @@ export default function LoginPage() {
                   type="email"
                   id="email"
                   autoComplete="email"
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                    errors.email ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-sm ${
+                    errors.email
+                      ? 'border-red-400 focus:ring-red-400/50'
+                      : 'border-border hover:border-muted-foreground/40'
                   }`}
                   placeholder="you@example.com"
                 />
@@ -133,7 +245,7 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-foreground mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-foreground mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -143,8 +255,10 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   autoComplete="current-password"
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                    errors.password ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
+                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-sm ${
+                    errors.password
+                      ? 'border-red-400 focus:ring-red-400/50'
+                      : 'border-border hover:border-muted-foreground/40'
                   }`}
                   placeholder="••••••••"
                 />
@@ -163,26 +277,28 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={isDisabled}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-base shadow-lg shadow-violet-500/25 transition-all hover:scale-[1.01] disabled:opacity-60 disabled:scale-100"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-violet-500/25 transition-all hover:scale-[1.01] disabled:opacity-60 disabled:scale-100"
             >
               {isDisabled ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
 
-          <div className="flex items-center gap-4 my-6">
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-5">
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-muted-foreground font-medium">OR</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
+          {/* Google */}
           <Button
             type="button"
             onClick={handleGoogleLogin}
             disabled={isDisabled}
             variant="outline"
-            className="w-full h-12 rounded-xl font-semibold gap-3 hover:bg-muted/60 transition-all"
+            className="w-full h-12 rounded-xl font-semibold gap-3 hover:bg-muted/60 transition-all text-sm"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
