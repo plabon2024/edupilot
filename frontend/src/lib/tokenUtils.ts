@@ -1,4 +1,11 @@
-'use client';
+/**
+ * tokenUtils.ts
+ *
+ * Pure token inspection helpers — no browser or server-specific APIs.
+ * Safe to import from both client components AND server-side middleware.
+ *
+ * ⚠️  Do NOT add 'use client' or 'use server' here.
+ */
 
 import { jwtDecode } from 'jwt-decode';
 

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 
 import {
   Brain, Upload, Zap, CheckCircle, ArrowRight, Sparkles,
-  FileText, MessageSquare, TrendingUp, Star, Users, Clock,
+  FileText, MessageSquare, Star, Users, Clock,
   Shield, Play, ChevronRight, Cpu, Layers, BarChart3, Rocket,
   BookOpen, GraduationCap,
 } from "lucide-react";
@@ -27,49 +27,6 @@ function useScrollReveal() {
   }, []);
 }
 
-// ── Animated Counter ────────────────────────────────────────
-function StatCard({
-  value, suffix = "", label, icon: Icon,
-}: { value: number; suffix?: string; label: string; icon: React.ElementType }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const started = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started.current) {
-        started.current = true;
-        const start = Date.now();
-        const duration = 2200;
-        const tick = () => {
-          const p = Math.min((Date.now() - start) / duration, 1);
-          const ease = 1 - Math.pow(1 - p, 3);
-          setCount(Math.floor(ease * value));
-          if (p < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
-    }, { threshold: 0.5 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [value]);
-
-  return (
-    <div ref={ref} className="flex items-center gap-3 sm:gap-4 group">
-      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-violet-500/20 transition-all duration-300 flex-shrink-0">
-        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-violet-500" />
-      </div>
-      <div>
-        <div className="text-2xl sm:text-3xl font-black text-foreground tabular-nums">
-          {count.toLocaleString()}{suffix}
-        </div>
-        <div className="text-xs sm:text-sm font-medium text-muted-foreground">{label}</div>
-      </div>
-    </div>
-  );
-}
 
 // ── Floating Particle ───────────────────────────────────────
 const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
@@ -245,15 +202,6 @@ function HeroSection() {
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="mt-16 sm:mt-20 pt-8 sm:pt-10 border-t border-border/30">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-4">
-            <StatCard value={10000} suffix="+" label="Active Students" icon={Users} />
-            <StatCard value={5000000} suffix="+" label="Flashcards Made" icon={Zap} />
-            <StatCard value={41} suffix="%" label="Avg. Grade Jump" icon={TrendingUp} />
-            <StatCard value={99} suffix="%" label="Happy Learners" icon={Star} />
-          </div>
-        </div>
       </div>
     </section>
   );
