@@ -63,17 +63,22 @@ const getMe = async (req: Request, res: Response, next: NextFunction) => {
 /* ── POST /api/v1/auth/refresh-token ────────────────────────── */
 const getNewToken = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const refreshToken = req.cookies.refreshToken as string | undefined;
-    const sessionToken = req.cookies['better-auth.session_token'] as string | undefined;
+    // Prefer httpOnly cookie (most secure). Fall back to request body for
+    // environments where cross-origin sameSite restrictions prevent cookies
+    // from being sent (e.g. localhost dev with different ports).
+    const refreshToken = (req.cookies.refreshToken ?? req.body?.refreshToken) as string | undefined;
+    const sessionToken = (req.cookies['better-auth.session_token'] ?? req.body?.sessionToken) as string | undefined;
 
     if (!refreshToken) throw new AppError(status.UNAUTHORIZED, 'Refresh token missing');
-    if (!sessionToken) throw new AppError(status.UNAUTHORIZED, 'Session token missing');
+    // sessionToken is optional — we fall back to pure JWT verification if absent.
 
     const result = await AuthService.getNewToken(refreshToken, sessionToken);
 
     tokenUtils.setAccessTokenCookie(res, result.accessToken);
     tokenUtils.setRefreshTokenCookie(res, result.refreshToken);
-    tokenUtils.setBetterAuthSessionCookie(res, result.sessionToken);
+    if (result.sessionToken) {
+      tokenUtils.setBetterAuthSessionCookie(res, result.sessionToken);
+    }
 
     res.status(status.OK).json({
       success: true,
@@ -85,6 +90,7 @@ const getNewToken = async (req: Request, res: Response, next: NextFunction) => {
     });
   } catch (error) { next(error); }
 };
+
 
 /* ── POST /api/v1/auth/change-password ──────────────────────── */
 const changePassword = async (req: Request, res: Response, next: NextFunction) => {

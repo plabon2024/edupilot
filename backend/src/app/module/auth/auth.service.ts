@@ -108,13 +108,17 @@ const getMe = async (userId: string) => {
 };
 
 /* ── POST /api/v1/auth/refresh-token ────────────────────────── */
-const getNewToken = async (refreshToken: string, sessionToken: string) => {
-  const sessionExists = await prisma.session.findUnique({
-    where: { token: sessionToken },
-    include: { user: true },
-  });
+const getNewToken = async (refreshToken: string, sessionToken?: string) => {
+  // If a sessionToken is provided (cookie-based flow), validate it in the DB
+  // for an extra layer of security. Without it, we rely solely on JWT verification.
+  if (sessionToken) {
+    const sessionExists = await prisma.session.findUnique({
+      where: { token: sessionToken },
+      include: { user: true },
+    });
 
-  if (!sessionExists) throw new AppError(status.UNAUTHORIZED, 'Invalid session token');
+    if (!sessionExists) throw new AppError(status.UNAUTHORIZED, 'Invalid session token');
+  }
 
   const verified = jwtUtils.verifyToken(refreshToken, envVars.REFRESH_TOKEN_SECRET);
   if (!verified.success) throw new AppError(status.UNAUTHORIZED, 'Invalid refresh token');
@@ -131,14 +135,17 @@ const getNewToken = async (refreshToken: string, sessionToken: string) => {
     emailVerified: data.emailVerified,
   });
 
-  // Extend session lifetime (keep same token, just push expiry forward)
-  await prisma.session.update({
-    where: { token: sessionToken },
-    data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-  });
+  // Extend session lifetime only when we have a valid session token.
+  if (sessionToken) {
+    await prisma.session.update({
+      where: { token: sessionToken },
+      data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+    });
+  }
 
   return { ...newTokens, sessionToken };
 };
+
 
 /* ── POST /api/v1/auth/change-password ──────────────────────── */
 const changePassword = async (payload: IChangePasswordPayload, sessionToken: string) => {

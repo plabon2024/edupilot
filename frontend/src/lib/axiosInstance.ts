@@ -57,8 +57,16 @@ axiosInstance.interceptors.request.use(
  * Calls the backend refresh-token endpoint directly using `fetch`.
  * Returns `true` when new tokens were successfully stored in localStorage.
  *
- * ⚠️  We deliberately use `fetch` here instead of a 'use server' action
- *     because server actions cannot be invoked from browser-side modules.
+ * Why `fetch` and not a server action:
+ *   Server actions (`'use server'`) cannot be called from browser-side modules.
+ *
+ * Token delivery strategy:
+ *   - `credentials: 'include'` forwards existing httpOnly cookies when the
+ *     browser allows it (same-site or production with sameSite:'none').
+ *   - The refreshToken from localStorage is also sent in the JSON body as a
+ *     fallback for cross-origin dev environments where sameSite:'lax' cookies
+ *     are not forwarded on cross-origin POST requests and browsers block
+ *     manually-set `Cookie` headers entirely.
  */
 async function refreshAccessTokenClientSide(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
@@ -69,13 +77,10 @@ async function refreshAccessTokenClientSide(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
       method: 'POST',
-      credentials: 'include', // forward existing cookies (session_token etc.)
-      headers: {
-        'Content-Type': 'application/json',
-        // Send the refreshToken via Authorization header as well in case
-        // the backend reads it from there as a fallback.
-        Cookie: `refreshToken=${refreshToken}`,
-      },
+      credentials: 'include', // forward browser cookies when same-site allows it
+      headers: { 'Content-Type': 'application/json' },
+      // Body fallback — backend reads this when the cookie isn't forwarded.
+      body: JSON.stringify({ refreshToken }),
     });
 
     if (!res.ok) {
@@ -91,7 +96,7 @@ async function refreshAccessTokenClientSide(): Promise<boolean> {
 
     if (!accessToken) return false;
 
-    // Persist new tokens
+    // Persist new tokens in localStorage.
     localStorage.setItem('accessToken', accessToken);
     if (newRefreshToken) {
       localStorage.setItem('refreshToken', newRefreshToken);
@@ -113,8 +118,22 @@ axiosInstance.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // Only attempt refresh once per request to avoid infinite loops.
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Determine if this is a request to an auth infrastructure endpoint.
+    // We must NEVER attempt a token refresh (or clear tokens) when the
+    // failing request is itself the refresh-token endpoint — doing so
+    // creates an infinite loop and destroys valid tokens in localStorage.
+    const requestUrl = originalRequest.url ?? '';
+    const isAuthInfraRequest =
+      requestUrl.includes('/auth/refresh-token') ||
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/register') ||
+      requestUrl.includes('/auth/logout');
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthInfraRequest
+    ) {
       originalRequest._retry = true;
 
       const refreshed = await refreshAccessTokenClientSide();
@@ -128,12 +147,11 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest);
       }
 
-      // Refresh failed — clear stale auth data so the app can redirect to login.
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-      }
+      // Refresh failed for a non-auth endpoint.
+      // Do NOT aggressively clear localStorage here — the useAuth hook
+      // manages session cleanup based on server state, and clearing here
+      // would destroy tokens that may still be valid for other requests.
+      // The 401 error propagates up and useAuth.initAuth handles it.
     }
 
     return Promise.reject(error);
