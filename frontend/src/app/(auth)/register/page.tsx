@@ -117,9 +117,8 @@ export default function RegisterPage() {
                   type="text"
                   id="name"
                   autoComplete="name"
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                    errors.name ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
-                  }`}
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${errors.name ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
+                    }`}
                   placeholder="John Doe"
                 />
               </div>
@@ -138,9 +137,8 @@ export default function RegisterPage() {
                   type="email"
                   id="email"
                   autoComplete="email"
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                    errors.email ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
-                  }`}
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${errors.email ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
+                    }`}
                   placeholder="you@example.com"
                 />
               </div>
@@ -159,9 +157,8 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   autoComplete="new-password"
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                    errors.password ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
-                  }`}
+                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${errors.password ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
+                    }`}
                   placeholder="Min. 8 chars, upper, lower, number, symbol"
                 />
                 <button
@@ -188,9 +185,8 @@ export default function RegisterPage() {
                   type={showConfirm ? 'text' : 'password'}
                   id="confirmPassword"
                   autoComplete="new-password"
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                    errors.confirmPassword ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
-                  }`}
+                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${errors.confirmPassword ? 'border-red-400 focus:ring-red-400/50' : 'border-border hover:border-muted-foreground/50'
+                    }`}
                   placeholder="••••••••"
                 />
                 <button

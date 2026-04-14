@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, type UserRole } from "./config/authRoutes";
 import { jwtUtils } from "./lib/jwtUtils";
 import { isTokenExpiringSoon } from "./lib/tokenUtils";
-import { getNewTokensWithRefreshToken, getUserInfo } from "./services/auth.services";
+import { getNewTokensWithRefreshToken } from "./services/auth.services";
 
 async function refreshTokenMiddleware (refreshToken : string) : Promise<boolean> {
     try {
@@ -86,9 +86,13 @@ export async function proxy (request : NextRequest) {
        }
 
 
-       // Rule-3 User trying to access Public route -> allow
+       // Rule-3 User trying to access Public route
        if(routerOwner === null){
-        return NextResponse.next();
+           // Special Case: if user is logged in and visits root /, redirect to dashboard
+           if (pathname === '/' && isValidAccessToken) {
+               return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
+           }
+           return NextResponse.next();
        }
 
        // Rule - 4 User is Not logged in but trying to access protected route -> redirect to login
@@ -98,16 +102,11 @@ export async function proxy (request : NextRequest) {
         return NextResponse.redirect(loginUrl);
        }
 
-       if(accessToken){
-            const userInfo = await getUserInfo();
-
-            if(userInfo){
-                // need password change scenario
-                if (userInfo.needPasswordChange){
-                    return NextResponse.next();
-                }
-            }
-       }
+       // needPasswordChange is handled client-side via useAuth + dashboard redirect.
+       // Removed server-side getUserInfo() fetch here because:
+       //   1. It caused ECONNREFUSED errors slowing every protected route by 2-3s.
+       //   2. The middleware only needs token-level checks; user-state checks
+       //      belong in the application layer where data is already loaded.
 
        // Rule - 5 User trying to access Common protected route -> allow
        if(routerOwner === "COMMON"){
