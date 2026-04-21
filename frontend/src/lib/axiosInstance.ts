@@ -68,6 +68,16 @@ axiosInstance.interceptors.request.use(
  *     fallback for cross-origin dev environments where sameSite:'lax' cookies
  *     are not forwarded on cross-origin POST requests and browsers block
  *     manually-set `Cookie` headers entirely.
+ * Why `fetch` and not a server action:
+ *   Server actions (`'use server'`) cannot be called from browser-side modules.
+ *
+ * Token delivery strategy:
+ *   - `credentials: 'include'` forwards existing httpOnly cookies when the
+ *     browser allows it (same-site or production with sameSite:'none').
+ *   - The refreshToken from localStorage is also sent in the JSON body as a
+ *     fallback for cross-origin dev environments where sameSite:'lax' cookies
+ *     are not forwarded on cross-origin POST requests and browsers block
+ *     manually-set `Cookie` headers entirely.
  */
 async function refreshAccessTokenClientSide(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
@@ -78,6 +88,10 @@ async function refreshAccessTokenClientSide(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
       method: 'POST',
+      credentials: 'include', // forward browser cookies when same-site allows it
+      headers: { 'Content-Type': 'application/json' },
+      // Body fallback — backend reads this when the cookie isn't forwarded.
+      body: JSON.stringify({ refreshToken }),
       credentials: 'include', // forward browser cookies when same-site allows it
       headers: { 'Content-Type': 'application/json' },
       // Body fallback — backend reads this when the cookie isn't forwarded.
@@ -132,28 +146,49 @@ axiosInstance.interceptors.response.use(
       !originalRequest._retry &&
       !isAuthInfraRequest
     ) {
-      originalRequest._retry = true;
+      // Determine if this is a request to an auth infrastructure endpoint.
+      // We must NEVER attempt a token refresh (or clear tokens) when the
+      // failing request is itself the refresh-token endpoint — doing so
+      // creates an infinite loop and destroys valid tokens in localStorage.
+      const requestUrl = originalRequest.url ?? '';
+      const isAuthInfraRequest =
+        requestUrl.includes('/auth/refresh-token') ||
+        requestUrl.includes('/auth/login') ||
+        requestUrl.includes('/auth/register') ||
+        requestUrl.includes('/auth/logout');
 
-      const refreshed = await refreshAccessTokenClientSide();
+      if (
+        error.response?.status === 401 &&
+        !originalRequest._retry &&
+        !isAuthInfraRequest
+      ) {
+        originalRequest._retry = true;
 
-      if (refreshed) {
-        // Attach the new token and retry the original request.
-        const newAccessToken = localStorage.getItem('accessToken');
-        if (newAccessToken && originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        const refreshed = await refreshAccessTokenClientSide();
+
+        if (refreshed) {
+          // Attach the new token and retry the original request.
+          const newAccessToken = localStorage.getItem('accessToken');
+          if (newAccessToken && originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          }
+          return axiosInstance(originalRequest);
         }
-        return axiosInstance(originalRequest);
+
+        // Refresh failed for a non-auth endpoint.
+        // Do NOT aggressively clear localStorage here — the useAuth hook
+        // manages session cleanup based on server state, and clearing here
+        // would destroy tokens that may still be valid for other requests.
+        // The 401 error propagates up and useAuth.initAuth handles it.
+        // Refresh failed for a non-auth endpoint.
+        // Do NOT aggressively clear localStorage here — the useAuth hook
+        // manages session cleanup based on server state, and clearing here
+        // would destroy tokens that may still be valid for other requests.
+        // The 401 error propagates up and useAuth.initAuth handles it.
       }
 
-      // Refresh failed for a non-auth endpoint.
-      // Do NOT aggressively clear localStorage here — the useAuth hook
-      // manages session cleanup based on server state, and clearing here
-      // would destroy tokens that may still be valid for other requests.
-      // The 401 error propagates up and useAuth.initAuth handles it.
+      return Promise.reject(error);
     }
-
-    return Promise.reject(error);
-  }
 );
 
 // ── Auth API surface ─────────────────────────────────────────
