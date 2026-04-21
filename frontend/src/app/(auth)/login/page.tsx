@@ -11,7 +11,6 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
 
 // ── Quick-login presets ─────────────────────────────────────
 const QUICK_LOGINS = [
@@ -37,7 +36,6 @@ const QUICK_LOGINS = [
 
 export default function LoginPage() {
   const { login: authLogin, googleLogin, isLoading, error: authError } = useAuth();
-  const router = useRouter();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -68,10 +66,8 @@ export default function LoginPage() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
+      // useAuth.login handles the redirect to the correct dashboard
       await authLogin(data);
-
-      // ✅ Redirect to home
-      router.push('/');
 
     } catch (err: unknown) {
       setErrorMessage(

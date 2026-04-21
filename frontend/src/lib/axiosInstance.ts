@@ -17,6 +17,7 @@
  */
 
 import axios, { AxiosError, AxiosInstance } from 'axios';
+import { setAuthTokens } from './authUtils';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
@@ -96,11 +97,8 @@ async function refreshAccessTokenClientSide(): Promise<boolean> {
 
     if (!accessToken) return false;
 
-    // Persist new tokens in localStorage.
-    localStorage.setItem('accessToken', accessToken);
-    if (newRefreshToken) {
-      localStorage.setItem('refreshToken', newRefreshToken);
-    }
+    // Persist new tokens in localStorage AND cookies (so middleware stays in sync).
+    setAuthTokens(accessToken, newRefreshToken ?? localStorage.getItem('refreshToken') ?? '');
 
     return true;
   } catch (err) {

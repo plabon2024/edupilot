@@ -92,8 +92,8 @@ export const adminAPI = {
     return axiosInstance.patch(`/admin/users/${userId}/role`, { role });
   },
 
-  updateUserSubscription: async (userId: string, subscriptionPlan: string): Promise<AxiosResponse> => {
-    return axiosInstance.patch(`/admin/users/${userId}/subscription`, { subscriptionPlan });
+  updateUserSubscription: async (userId: string, data: { isSubscribed: boolean; subscriptionEndsAt?: string }): Promise<AxiosResponse> => {
+    return axiosInstance.patch(`/admin/users/${userId}/subscription`, data);
   },
 
   // ── Documents ─────────────────────────────────────────────────────────────────

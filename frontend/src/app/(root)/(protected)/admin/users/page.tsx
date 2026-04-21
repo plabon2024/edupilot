@@ -76,7 +76,7 @@ function MobileUserCard({
       {/* Meta row */}
       <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <CreditCard className="w-3 h-3" />{user.subscriptionPlan}
+          <CreditCard className="w-3 h-3" />{user.isSubscribed ? 'Subscribed' : 'Free'}
         </span>
         <span className="flex items-center gap-1">
           <CalendarDays className="w-3 h-3" />
@@ -114,17 +114,16 @@ function UserDetailModal({
   onClose,
   onStatusChange,
   onRoleChange,
-  onSubscriptionChange,
+  onSubscriptionToggle,
   onDelete,
 }: {
   user: AdminUser;
   onClose: () => void;
   onStatusChange: (id: string, status: string) => Promise<void>;
   onRoleChange: (id: string, role: string) => Promise<void>;
-  onSubscriptionChange: (id: string, plan: string) => Promise<void>;
+  onSubscriptionToggle: (id: string, isSubscribed: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const plans: SubscriptionPlan[] = ['FREE', 'BASIC', 'PRO', 'ENTERPRISE'];
   const [loading, setLoading] = useState(false);
 
   const wrap = async (fn: () => Promise<void>) => {
@@ -156,8 +155,8 @@ function UserDetailModal({
           {[
             ['Role',         <RoleBadge key="r" role={user.role} />],
             ['Status',       <StatusBadge key="s" status={user.status} />],
-            ['Plan',         <span key="p" className="font-semibold">{user.subscriptionPlan}</span>],
-            ['Credits',      <span key="c" className="font-semibold">{user.creditBalance ?? 'N/A'}</span>],
+            ['Subscribed',   <span key="p" className="font-semibold">{user.isSubscribed ? '✅ Yes' : '❌ No'}</span>],
+            ['Ends At',      <span key="p2" className="font-semibold text-xs">{user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt).toLocaleDateString() : 'N/A'}</span>],
             ['Email Verify', <span key="e">{user.isEmailVerified ? '✅ Verified' : '❌ Not verified'}</span>],
             ['Joined',       <span key="j">{new Date(user.createdAt).toLocaleDateString()}</span>],
           ].map(([label, value]) => (
@@ -173,15 +172,16 @@ function UserDetailModal({
           {/* Subscription */}
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-indigo-500" />
-            <span className="text-sm font-medium flex-1">Change Plan</span>
-            <select
-              onChange={e => wrap(() => onSubscriptionChange(user.id, e.target.value))}
-              defaultValue={user.subscriptionPlan}
+            <span className="text-sm font-medium flex-1">Subscription</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-7"
               disabled={loading}
-              className="text-xs bg-muted border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              onClick={() => wrap(() => onSubscriptionToggle(user.id, !user.isSubscribed))}
             >
-              {plans.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+              {user.isSubscribed ? 'Cancel Subscription' : 'Activate Subscription'}
+            </Button>
           </div>
 
           {/* Role + Status */}
@@ -313,10 +313,10 @@ export default function AdminUsersPage() {
     if (selected?.id === userId) setSelected(s => s ? { ...s, role: newRole } : s);
   };
 
-  const handleSubscriptionChange = async (userId: string, plan: string) => {
-    await adminAPI.updateUserSubscription(userId, plan);
-    setUsers(u => u.map(x => x.id === userId ? { ...x, subscriptionPlan: plan } : x));
-    if (selected?.id === userId) setSelected(s => s ? { ...s, subscriptionPlan: plan } : s);
+  const handleSubscriptionToggle = async (userId: string, isSubscribed: boolean) => {
+    await adminAPI.updateUserSubscription(userId, { isSubscribed });
+    setUsers(u => u.map(x => x.id === userId ? { ...x, isSubscribed } : x));
+    if (selected?.id === userId) setSelected(s => s ? { ...s, isSubscribed } : s);
   };
 
   const handleDelete = async (userId: string) => {
@@ -469,7 +469,7 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="px-6 py-4"><RoleBadge role={user.role} /></td>
                         <td className="px-6 py-4"><StatusBadge status={user.status} /></td>
-                        <td className="px-6 py-4 font-medium text-xs">{user.subscriptionPlan}</td>
+                        <td className="px-6 py-4 font-medium text-xs">{user.isSubscribed ? 'Subscribed' : 'Free'}</td>
                         <td className="px-6 py-4 text-muted-foreground text-xs">
                           {new Date(user.createdAt).toLocaleDateString()}
                         </td>
@@ -522,7 +522,7 @@ export default function AdminUsersPage() {
           onClose={() => setSelected(null)}
           onStatusChange={handleStatusChange}
           onRoleChange={handleRoleChange}
-          onSubscriptionChange={handleSubscriptionChange}
+          onSubscriptionToggle={handleSubscriptionToggle}
           onDelete={handleDelete}
         />
       )}

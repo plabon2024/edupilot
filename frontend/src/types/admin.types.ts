@@ -20,8 +20,8 @@ export interface AdminUser {
   email: string;
   role: Role | string;
   status: UserStatus | string;
-  subscriptionPlan: SubscriptionPlan | string;
-  creditBalance?: number;
+  isSubscribed: boolean;
+  subscriptionEndsAt?: string | null;
   isEmailVerified?: boolean;
   createdAt: string;
   updatedAt: string;

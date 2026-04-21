@@ -4,15 +4,44 @@
  * Auth utilities for managing tokens and authentication state
  */
 
+// ── Cookie helpers (for middleware visibility) ───────────────
+
+/**
+ * Mirror tokens into browser cookies so the Next.js middleware
+ * (which runs server-side and cannot access localStorage) can
+ * read them for authentication-aware routing.
+ *
+ * The cookies are NOT httpOnly so the browser can set/clear them
+ * from client-side JS. Route protection logic in middleware is
+ * purely for UX (redirects); real security lives on the backend.
+ */
+const isProduction = process.env.NODE_ENV === 'production';
+
+function setCookie(name: string, value: string, maxAgeSeconds: number) {
+  if (typeof document === 'undefined') return;
+  const secure = isProduction ? '; Secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; Path=/; SameSite=Lax${secure}`;
+}
+
+function deleteCookie(name: string) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
 // ── Token Management ────────────────────────────────────────
 
 /**
- * Set tokens in localStorage
+ * Set tokens in localStorage AND in browser cookies (for middleware).
  */
 export const setAuthTokens = (accessToken: string, refreshToken: string) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
+    // Mirror into cookies so the server-side middleware can read them.
+    const ONE_DAY = 60 * 60 * 24;
+    const SEVEN_DAYS = ONE_DAY * 7;
+    setCookie('accessToken', accessToken, ONE_DAY);
+    setCookie('refreshToken', refreshToken, SEVEN_DAYS);
   }
 };
 
@@ -49,13 +78,16 @@ export const getRefreshToken = (): string | null => {
 };
 
 /**
- * Clear all auth tokens
+ * Clear all auth tokens from localStorage AND cookies.
  */
 export const clearAuthTokens = () => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    // Also clear middleware-visible cookies.
+    deleteCookie('accessToken');
+    deleteCookie('refreshToken');
   }
 };
 

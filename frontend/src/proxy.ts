@@ -1,142 +1,151 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, type UserRole } from "./config/authRoutes";
-import { jwtUtils } from "./lib/jwtUtils";
-import { isTokenExpiringSoon } from "./lib/tokenUtils";
-import { getNewTokensWithRefreshToken } from "./services/auth.services";
+import {
+  getDefaultDashboardRoute,
+  getRouteOwner,
+  isAuthRoute,
+  type UserRole,
+} from "./config/authRoutes";
 
-async function refreshTokenMiddleware (refreshToken : string) : Promise<boolean> {
-    try {
-        const refresh = await getNewTokensWithRefreshToken(refreshToken);
-        if(!refresh){
-            return false;
-        }
-        return true;
-    } catch (error) {
-        console.error("Error refreshing token in middleware:", error);
-        return false;   
-    }
+// ── Edge-safe JWT decode ──────────────────────────────────────────────────────
+// We only need the payload (no signature verification here — the backend
+// is the authority). `jose` is Edge-compatible and already in package.json.
+import { decodeJwt } from "jose";
+
+/**
+ * Safely decode a JWT and return the payload, or null on any error.
+ * This does NOT verify the signature — it is used only for routing decisions.
+ * The backend enforces actual security.
+ */
+function safeDecodeJwt(token: string): Record<string, unknown> | null {
+  try {
+    return decodeJwt(token) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
+/** Returns true if the token's `exp` claim is in the past. */
+function isExpired(payload: Record<string, unknown>): boolean {
+  const exp = payload.exp;
+  if (typeof exp !== "number") return true;
+  return exp * 1000 < Date.now();
+}
 
-export async function proxy (request : NextRequest) {
-   try {
-       const { pathname } = request.nextUrl; // eg /dashboard, /admin/dashboard, /doctor/dashboard
+/** Returns true if the token expires within the next 5 minutes. */
+function isExpiringSoon(payload: Record<string, unknown>): boolean {
+  const exp = payload.exp;
+  if (typeof exp !== "number") return true;
+  return exp * 1000 - Date.now() < 5 * 60 * 1000;
+}
+
+// ── Token refresh ─────────────────────────────────────────────────────────────
+
+async function refreshTokens(
+  refreshToken: string,
+  backendBaseUrl: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${backendBaseUrl}/api/v1/auth/refresh-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("[middleware] Token refresh error:", err);
+    return false;
+  }
+}
+
+// ── Main middleware ───────────────────────────────────────────────────────────
+
+export async function proxy(request: NextRequest) {
+  try {
+    const { pathname } = request.nextUrl;
     const pathWithQuery = `${pathname}${request.nextUrl.search}`;
-       const accessToken = request.cookies.get("accessToken")?.value;
-       const refreshToken = request.cookies.get("refreshToken")?.value;
 
-       const decodedAccessToken =  accessToken && jwtUtils.verifyToken(accessToken, process.env.JWT_ACCESS_SECRET as string).data;
+    // Read tokens from cookies (set by the backend / login action).
+    const accessToken = request.cookies.get("accessToken")?.value;
+    const refreshToken = request.cookies.get("refreshToken")?.value;
 
-       const isValidAccessToken = accessToken && jwtUtils.verifyToken(accessToken, process.env.JWT_ACCESS_SECRET as string).success;
+    const payload = accessToken ? safeDecodeJwt(accessToken) : null;
+    const isValidAccessToken = !!payload && !isExpired(payload);
+    const userRole: UserRole | null = isValidAccessToken
+      ? ((payload as Record<string, unknown>).role as UserRole) ?? null
+      : null;
 
-       let userRole: UserRole | null = null;
+    const routeOwner = getRouteOwner(pathname);
+    const isAuth = isAuthRoute(pathname);
 
-       if(decodedAccessToken){
-            userRole = (decodedAccessToken as any).role as UserRole;
-       }
+    // ── Proactive token refresh ──────────────────────────────────────────────
+    if (isValidAccessToken && refreshToken && isExpiringSoon(payload!)) {
+      const backendBaseUrl =
+        process.env.NEXT_PUBLIC_AUTH_URL ??
+        process.env.BACKEND_URL ??
+        "";
+      if (backendBaseUrl) {
+        await refreshTokens(refreshToken, backendBaseUrl);
+      }
+      // Continue — the backend will set new cookies in set-cookie headers
+      // if it can; we just let the request through either way.
+    }
 
-       const routerOwner = getRouteOwner(pathname);
+    // Rule 1: Logged-in users cannot visit auth pages (login / register / etc.)
+    if (isAuth && isValidAccessToken) {
+      return NextResponse.redirect(
+        new URL(getDefaultDashboardRoute(userRole as UserRole), request.url)
+      );
+    }
 
-       const isAuth = isAuthRoute(pathname);
+    // Rule 2: Public route
+    if (routeOwner === null) {
+      // Special case: root "/" → redirect authenticated users to dashboard
+      if (pathname === "/" && isValidAccessToken) {
+        return NextResponse.redirect(
+          new URL(getDefaultDashboardRoute(userRole as UserRole), request.url)
+        );
+      }
+      return NextResponse.next();
+    }
 
+    // Rule 3: Protected route but no valid token → redirect to login
+    if (!isValidAccessToken) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathWithQuery);
+      return NextResponse.redirect(loginUrl);
+    }
 
-       //proactively refresh token if refresh token exists and access token is expired or about to expire
-       if (isValidAccessToken && refreshToken && (await isTokenExpiringSoon(accessToken))){
-            const requestHeaders = new Headers(request.headers);
+    // Rule 4: Common protected route (any authenticated user)
+    if (routeOwner === "COMMON") {
+      return NextResponse.next();
+    }
 
-            const response = NextResponse.next({
-                request: {
-                    headers : requestHeaders
-            
-                },
-            })
+    // Rule 5: Role-specific protected route — enforce ownership
+    if (routeOwner === "ADMIN" || routeOwner === "USER") {
+      if (routeOwner !== userRole) {
+        return NextResponse.redirect(
+          new URL(getDefaultDashboardRoute(userRole as UserRole), request.url)
+        );
+      }
+    }
 
-
-            try {
-                const refreshed = await refreshTokenMiddleware(refreshToken);
-
-                if(refreshed){
-                    requestHeaders.set("x-token-refreshed", "1");
-                }
-
-                return NextResponse.next(
-                    {
-                        request: {
-                            headers : requestHeaders
-                        },
-                        headers : response.headers
-                    }
-                )
-            } catch (error) {
-                console.error("Error refreshing token:", error);
-
-            }
-
-            return response;
-       }
-
-
-    // Rule - 1 : Logged-in users should not access auth pages,
-    // except pages that may be mandatory due to account state.
-    if(
-     isAuth &&
-     isValidAccessToken
-    ){
-        return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
-       }
-
-
-       // Rule-3 User trying to access Public route
-       if(routerOwner === null){
-           // Special Case: if user is logged in and visits root /, redirect to dashboard
-           if (pathname === '/' && isValidAccessToken) {
-               return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
-           }
-           return NextResponse.next();
-       }
-
-       // Rule - 4 User is Not logged in but trying to access protected route -> redirect to login
-       if(!accessToken || !isValidAccessToken){
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("redirect", pathWithQuery);
-        return NextResponse.redirect(loginUrl);
-       }
-
-       // needPasswordChange is handled client-side via useAuth + dashboard redirect.
-       // Removed server-side getUserInfo() fetch here because:
-       //   1. It caused ECONNREFUSED errors slowing every protected route by 2-3s.
-       //   2. The middleware only needs token-level checks; user-state checks
-       //      belong in the application layer where data is already loaded.
-
-       // Rule - 5 User trying to access Common protected route -> allow
-       if(routerOwner === "COMMON"){
-        return NextResponse.next();
-       }
-
-       //Rule-6 User trying to visit role based protected but doesn't have required role -> redirect to their default dashboard
-
-       if(routerOwner === "ADMIN" || routerOwner === "USER"){
-            if(routerOwner !== userRole){
-                return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
-            }
-       }
-
-       return NextResponse.next();
-
-   } catch (error) {
-         console.error("Error in proxy middleware:", error);
-   }
+    return NextResponse.next();
+  } catch (error) {
+    console.error("[middleware] Unexpected error:", error);
+    // Fail open — let the request through so the app can render an error page.
+    return NextResponse.next();
+  }
 }
 
 export const config = {
-    matcher : [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-         */
-        '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
-    ]
-}
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)",
+  ],
+};

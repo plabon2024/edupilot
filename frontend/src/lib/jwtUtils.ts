@@ -13,6 +13,9 @@
 /**
  * Lightweight JWT utilities for structural validation and decoding.
  * Actual cryptographic verification must happen on the backend.
+ *
+ * Uses `jose` (Edge-compatible) for decoding — avoids the Node.js-only
+ * `Buffer.from(..., 'base64url')` which is not available in Edge Runtime.
  */
 export const jwtUtils = {
   /**
@@ -23,8 +26,7 @@ export const jwtUtils = {
    * @returns `{ success: true, data: payload }` or `{ success: false }`
    */
   verifyToken: (
-    token: string,
-    _secretKey?: string
+    token: string
   ): { success: boolean; data?: Record<string, unknown> } => {
     try {
       const parts = token.split('.');
@@ -33,9 +35,10 @@ export const jwtUtils = {
       }
 
       // Base64url → JSON payload
-      const payload = JSON.parse(
-        Buffer.from(parts[1], 'base64url').toString('utf8')
-      ) as Record<string, unknown>;
+      // Use atob (available in both browser and Edge) instead of Buffer
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+      const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
 
       return { success: true, data: payload };
     } catch (error) {
@@ -53,9 +56,9 @@ export const jwtUtils = {
       const parts = token.split('.');
       if (parts.length !== 3) return null;
 
-      return JSON.parse(
-        Buffer.from(parts[1], 'base64url').toString('utf8')
-      ) as Record<string, unknown>;
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+      return JSON.parse(atob(padded)) as Record<string, unknown>;
     } catch (error) {
       console.error('Error decoding token:', error);
       return null;

@@ -3,26 +3,98 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { adminAPI } from '@/services/admin.services';
-import { AdminUser, SubscriptionPlan } from '@/types/admin.types';
+import { AdminUser } from '@/types/admin.types';
 import {
   ArrowLeft, ShieldAlert, ShieldCheck, Trash2, CreditCard,
-  User, Mail, Calendar, BarChart3, CheckCircle, XCircle,
+  User, Mail, Calendar, BarChart3, CheckCircle, XCircle, Edit, Save, X
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 function Badge({ children, className }: { children: React.ReactNode; className: string }) {
   return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${className}`}>{children}</span>;
 }
 
-export default function AdminUserDetailPage({ params }: { params: { id: string } }) {
+function EditUserModal({ 
+  user, 
+  onClose, 
+  onSave 
+}: { 
+  user: AdminUser; 
+  onClose: () => void; 
+  onSave: (name: string, email: string) => Promise<void> 
+}) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await onSave(name, email);
+      onClose();
+    } catch {
+      // error handled in save wrapper
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-md bg-background border border-border/60 rounded-2xl shadow-2xl p-6">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+        <h2 className="text-xl font-bold mb-4">Edit User Details</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 bg-muted/50 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              required
+            />
+          </div>
+          <div className="pt-2 flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} className="bg-violet-600 hover:bg-violet-700 text-white">
+              <Save className="w-4 h-4 mr-2" />
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminUserDetailPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [user,      setUser]      = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busy,      setBusy]      = useState(false);
   const [error,     setError]     = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
+    if (!params?.id) return;
     adminAPI.getUserById(params.id)
       .then(res => setUser(res.data.data))
       .catch(() => setError('User not found.'))
@@ -56,8 +128,6 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
     );
   }
 
-  const plans: SubscriptionPlan[] = ['FREE', 'BASIC', 'PRO', 'ENTERPRISE'];
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl">
 
@@ -69,15 +139,20 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
         >
           <ArrowLeft className="w-4 h-4" /> Back to User Management
         </button>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold">
-            {user.name.charAt(0).toUpperCase()}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight">{user.name}</h1>
+              <p className="text-muted-foreground text-sm">{user.email}</p>
+              <p className="font-mono text-xs text-muted-foreground mt-0.5">{user.id}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">{user.name}</h1>
-            <p className="text-muted-foreground text-sm">{user.email}</p>
-            <p className="font-mono text-xs text-muted-foreground mt-0.5">{user.id}</p>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(true)}>
+            <Edit className="w-4 h-4 mr-2" /> Edit Profile
+          </Button>
         </div>
       </div>
 
@@ -98,8 +173,8 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
                 'bg-slate-100 text-slate-600'
               }>{user.status}</Badge>
             )},
-          { icon: <CreditCard className="w-4 h-4 text-indigo-500" />, label: 'Subscription Plan', value: <span className="font-semibold">{user.subscriptionPlan}</span> },
-          { icon: <BarChart3 className="w-4 h-4 text-blue-500" />,   label: 'Credits',            value: <span className="font-semibold">{user.creditBalance ?? 'N/A'}</span> },
+          { icon: <CreditCard className="w-4 h-4 text-indigo-500" />, label: 'Subscription', value: <span className="font-semibold">{user.isSubscribed ? '✅ Active' : '❌ Inactive'}</span> },
+          { icon: <BarChart3 className="w-4 h-4 text-blue-500" />,   label: 'Expiry',            value: <span className="font-semibold">{user.subscriptionEndsAt ? new Date(user.subscriptionEndsAt).toLocaleDateString() : 'N/A'}</span> },
           { icon: <Mail className="w-4 h-4 text-orange-500" />,      label: 'Email Verified',     value: user.isEmailVerified ? <span className="text-green-600 font-medium">✅ Yes</span> : <span className="text-red-500 font-medium">❌ No</span> },
           { icon: <Calendar className="w-4 h-4 text-muted-foreground" />, label: 'Joined',        value: new Date(user.createdAt).toLocaleString() },
           { icon: <Calendar className="w-4 h-4 text-muted-foreground" />, label: 'Last Updated',  value: new Date(user.updatedAt).toLocaleString() },
@@ -124,21 +199,19 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
           {/* Change subscription */}
           <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
             <CreditCard className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-            <span className="text-sm font-medium flex-1">Change Subscription Plan</span>
-            <select
-              defaultValue={user.subscriptionPlan}
-              disabled={busy}
-              onChange={e => {
-                const plan = e.target.value;
+            <span className="text-sm font-medium flex-1">Subscription Status</span>
+            <Button
+              variant="outline" size="sm" disabled={busy}
+              onClick={() => {
+                const next = !user.isSubscribed;
                 wrap(async () => {
-                  await adminAPI.updateUserSubscription(user.id, plan);
-                  setUser(u => u ? { ...u, subscriptionPlan: plan } : u);
+                  await adminAPI.updateUserSubscription(user.id, { isSubscribed: next });
+                  setUser(u => u ? { ...u, isSubscribed: next } : u);
                 });
               }}
-              className="text-sm bg-background border border-border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
-              {plans.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+              {user.isSubscribed ? 'Cancel Subscription' : 'Activate Subscription'}
+            </Button>
           </div>
 
           {/* Role + Status row */}
@@ -167,7 +240,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
                 setUser(u => u ? { ...u, status: newStatus } : u);
               })}
             >
-              {user.status === 'ACTIVE' ? 'Suspend User' : 'Activate User'}
+              {user.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
             </Button>
           </div>
 
@@ -189,6 +262,18 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
         </CardContent>
       </Card>
 
+      {isEditModalOpen && (
+        <EditUserModal
+          user={user}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={async (name, email) => {
+            await wrap(async () => {
+              await adminAPI.updateUser(user.id, { name, email });
+              setUser(u => u ? { ...u, name, email } : u);
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
