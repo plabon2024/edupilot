@@ -91,25 +91,31 @@ export const useAuth = (): UseAuthReturn => {
    */
   const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     try {
-      // Step 1: attempt a cookie-based token refresh via the backend.
-      // This may succeed or fail depending on whether cookies are present.
+      const tokens = getAuthTokens();
+      const hasLocalRefreshToken = !!tokens?.refreshToken;
+
+      // Step 1: attempt a token refresh via the backend.
+      // This sends the refreshToken from localStorage in the body (if present)
+      // and also forwards any httpOnly cookies.
       try {
         const refreshResponse = await authAPI.refreshToken();
         if (refreshResponse.data?.accessToken) {
           setAuthTokens(
             refreshResponse.data.accessToken,
-            refreshResponse.data.refreshToken ?? ''
+            refreshResponse.data.refreshToken ?? tokens?.refreshToken ?? ''
           );
+        } else {
+          return false;
         }
       } catch (refreshError) {
-        // Cookie-based refresh failed — the interceptor in axiosInstance will
-        // have already attempted a localStorage-based refresh. Continue anyway
-        // and let /me determine if we have a valid session.
-        console.warn('[useAuth] Cookie-based refresh failed:', refreshError);
+        // Only warn if we actually expected to have a valid session.
+        if (hasLocalRefreshToken) {
+          console.warn('[useAuth] Refresh failed despite having a refresh token:', refreshError);
+        }
+        return false;
       }
 
       // Step 2: confirm the session is valid by fetching the current user.
-      // GET /auth/me returns `{ success, data: userObject }` — data IS the user.
       const meResponse = await authAPI.getMe();
       const refreshedUser = meResponse.data as AuthUser | null;
       if (refreshedUser?.id) {
@@ -121,7 +127,11 @@ export const useAuth = (): UseAuthReturn => {
 
       return false;
     } catch (err) {
-      console.error('[useAuth] Token refresh failed:', err);
+      // Only log as error if it's not a standard 401 (unauthorized).
+      const is401 = (err as AxiosError)?.response?.status === 401;
+      if (!is401) {
+        console.error('[useAuth] Unexpected error during token refresh:', err);
+      }
       return false;
     }
   }, []);
@@ -178,7 +188,9 @@ export const useAuth = (): UseAuthReturn => {
           return; // setIsLoading already called above
         }
 
-        // No valid cached token — try to refresh.
+        // No valid cached token — try to refresh if we have tokens or cookies.
+        // We call it even if localStorage is empty to support cookie-only sessions,
+        // but the function itself is now quieter on failure.
         const success = await refreshAccessToken();
         if (!success) {
           clearLocalAuth();

@@ -92,10 +92,6 @@ async function refreshAccessTokenClientSide(): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       // Body fallback — backend reads this when the cookie isn't forwarded.
       body: JSON.stringify({ refreshToken }),
-      credentials: 'include', // forward browser cookies when same-site allows it
-      headers: { 'Content-Type': 'application/json' },
-      // Body fallback — backend reads this when the cookie isn't forwarded.
-      body: JSON.stringify({ refreshToken }),
     });
 
     if (!res.ok) {
@@ -146,49 +142,28 @@ axiosInstance.interceptors.response.use(
       !originalRequest._retry &&
       !isAuthInfraRequest
     ) {
-      // Determine if this is a request to an auth infrastructure endpoint.
-      // We must NEVER attempt a token refresh (or clear tokens) when the
-      // failing request is itself the refresh-token endpoint — doing so
-      // creates an infinite loop and destroys valid tokens in localStorage.
-      const requestUrl = originalRequest.url ?? '';
-      const isAuthInfraRequest =
-        requestUrl.includes('/auth/refresh-token') ||
-        requestUrl.includes('/auth/login') ||
-        requestUrl.includes('/auth/register') ||
-        requestUrl.includes('/auth/logout');
+      originalRequest._retry = true;
 
-      if (
-        error.response?.status === 401 &&
-        !originalRequest._retry &&
-        !isAuthInfraRequest
-      ) {
-        originalRequest._retry = true;
+      const refreshed = await refreshAccessTokenClientSide();
 
-        const refreshed = await refreshAccessTokenClientSide();
-
-        if (refreshed) {
-          // Attach the new token and retry the original request.
-          const newAccessToken = localStorage.getItem('accessToken');
-          if (newAccessToken && originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          }
-          return axiosInstance(originalRequest);
+      if (refreshed) {
+        // Attach the new token and retry the original request.
+        const newAccessToken = localStorage.getItem('accessToken');
+        if (newAccessToken && originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
-
-        // Refresh failed for a non-auth endpoint.
-        // Do NOT aggressively clear localStorage here — the useAuth hook
-        // manages session cleanup based on server state, and clearing here
-        // would destroy tokens that may still be valid for other requests.
-        // The 401 error propagates up and useAuth.initAuth handles it.
-        // Refresh failed for a non-auth endpoint.
-        // Do NOT aggressively clear localStorage here — the useAuth hook
-        // manages session cleanup based on server state, and clearing here
-        // would destroy tokens that may still be valid for other requests.
-        // The 401 error propagates up and useAuth.initAuth handles it.
+        return axiosInstance(originalRequest);
       }
 
-      return Promise.reject(error);
+      // Refresh failed for a non-auth endpoint.
+      // Do NOT aggressively clear localStorage here — the useAuth hook
+      // manages session cleanup based on server state, and clearing here
+      // would destroy tokens that may still be valid for other requests.
+      // The 401 error propagates up and useAuth.initAuth handles it.
     }
+
+    return Promise.reject(error);
+  }
 );
 
 // ── Auth API surface ─────────────────────────────────────────
@@ -263,8 +238,9 @@ export const authAPI = {
   },
 
   /** Exchange a valid refresh token for new access + refresh tokens. */
-  refreshToken: async (): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<AuthResponse>('/auth/refresh-token');
+  refreshToken: async (token?: string): Promise<AuthResponse> => {
+    const refreshToken = token || (typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null);
+    const response = await axiosInstance.post<AuthResponse>('/auth/refresh-token', { refreshToken });
     return response.data;
   },
 };
